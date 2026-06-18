@@ -8,7 +8,7 @@ describe("api client", () => {
 
   it("getHealth returns parsed JSON on 2xx", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({ ok: true, eTenders_reachable: true, config_path: "/x" }), {
+      new Response(JSON.stringify({ ok: true, etenders_reachable: true, config_path: "/x" }), {
         status: 200,
       }),
     );

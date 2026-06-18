@@ -44,7 +44,7 @@ export interface MatchesResponse {
 
 export interface HealthResponse {
   ok: boolean;
-  eTenders_reachable: boolean;
+  etenders_reachable: boolean;
   config_path: string;
   detail?: string;
 }
