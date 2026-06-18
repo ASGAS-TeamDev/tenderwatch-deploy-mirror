@@ -5,7 +5,6 @@ import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-import pytest
 
 from app.models import Config
 from app.services.filter import apply_rules

@@ -1,10 +1,8 @@
 """Tests for config persistence."""
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
-import pytest
 
 from app.config_store import load_config, save_config
 from app.models import Config
