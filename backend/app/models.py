@@ -7,14 +7,23 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 
+DEFAULT_KEYWORDS = [
+    "software", "it services", "system integration",
+    "consulting", "professional services", "managed services",
+    "cloud", "cybersecurity", "data", "development",
+    "support and maintenance",
+]
+DEFAULT_BUYER_ALLOWLIST = ["sita", "national treasury", "sars", "dcdt", "gcis"]
+
+
 class Config(BaseModel):
     lookback_days: int = Field(default=30, ge=7, le=90)
     page_size: int = Field(default=100, ge=1, le=1000)
     high_value_threshold_zar: float = Field(default=5_000_000, ge=0)
     closing_soon_days: int = Field(default=7, ge=1, le=60)
     include_closed: bool = True
-    keywords: list[str] = Field(default_factory=list)
-    buyer_allowlist: list[str] = Field(default_factory=list)
+    keywords: list[str] = Field(default_factory=lambda: list(DEFAULT_KEYWORDS))
+    buyer_allowlist: list[str] = Field(default_factory=lambda: list(DEFAULT_BUYER_ALLOWLIST))
 
 
 class Match(BaseModel):
