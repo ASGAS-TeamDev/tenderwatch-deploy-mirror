@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { getHealth, getMatches, getConfig, putConfig } from "../src/api/client";
+import { getHealth, getMatches, putConfig } from "../src/api/client";
 
 describe("api client", () => {
   beforeEach(() => {
