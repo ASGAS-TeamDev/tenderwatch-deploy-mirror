@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+/* Design tokens — lifted from the Stitch Tonal Spot / Inter / 8 dp theme.
+   The visual spec lives in the planning repo at
+   docs/superpowers/specs/2026-06-17-tender-watch-mockups-design/. */
+@theme {
+  --color-primary: #4f46e5;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #e0e7ff;
+  --color-on-primary-container: #1e1b4b;
+
+  --color-secondary: #6b7280;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #f3f4f6;
+  --color-on-secondary-container: #1f2937;
+
+  --color-tertiary: #0d9488;
+  --color-on-tertiary: #ffffff;
+  --color-tertiary-container: #ccfbf1;
+  --color-on-tertiary-container: #134e4a;
+
+  --color-warning: #d97706;
+  --color-on-warning: #ffffff;
+  --color-warning-container: #fef3c7;
+  --color-on-warning-container: #78350f;
+
+  --color-error: #dc2626;
+  --color-on-error: #ffffff;
+  --color-error-container: #fee2e2;
+  --color-on-error-container: #7f1d1d;
+
+  --color-surface: #ffffff;
+  --color-on-surface: #111827;
+  --color-surface-variant: #f9fafb;
+  --color-on-surface-variant: #6b7280;
+  --color-outline: #e5e7eb;
+  --color-outline-variant: #f3f4f6;
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --radius-card: 0.5rem;
+  --radius-pill: 9999px;
+}
