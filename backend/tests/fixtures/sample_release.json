@@ -1,0 +1,22 @@
+{
+  "ocid": "ocds-9t57fa-test-1",
+  "date": "2026-06-15T08:00:00Z",
+  "tender": {
+    "id": "tender-1",
+    "title": "Provision of Cloud Hosting Services for Government Departments",
+    "status": "active",
+    "category": "IT services",
+    "province": "Gauteng",
+    "value": { "amount": 12500000, "currency": "ZAR" },
+    "tenderPeriod": { "endDate": "2026-07-15T17:00:00Z" },
+    "buyer": { "name": "SITA" },
+    "procuringEntity": { "name": "SITA" },
+    "items": [
+      { "classification": { "description": "Cloud infrastructure" } },
+      { "classification": { "description": "Managed services" } }
+    ],
+    "documents": [
+      { "url": "https://etenders.gov.za/doc/1", "title": "Bid invitation" }
+    ]
+  }
+}
