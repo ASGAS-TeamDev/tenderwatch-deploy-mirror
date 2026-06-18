@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.log
+backend/config/
+backend/.env
+
+# Node / Vite
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+coverage/
+.env
+.env.local
+.env.production
+
+# IDE
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Stitch / planning artefacts (kept in the planning repo, not here)
+# (none — this is the build repo)
