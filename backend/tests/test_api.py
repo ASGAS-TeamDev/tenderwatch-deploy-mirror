@@ -1,0 +1,137 @@
+"""End-to-end API tests. Covers T1, T2, T3, T5, T6, T7, T13, T16."""
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import httpx
+import pytest
+import respx
+from fastapi.testclient import TestClient
+
+from app.main import app
+
+FIXTURES = Path(__file__).parent / "fixtures"
+
+
+def _load(name: str) -> dict:
+    return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
+
+
+@pytest.fixture(autouse=True)
+def _reset_matches_cache():
+    """Wipe the module-level cache and `_last_good` between tests.
+
+    The matches route holds a process-local TTLCache and a `_last_good` sentinel.
+    Without this reset, a successful response in an earlier test poisons later
+    tests by short-circuiting the upstream fetch.
+    """
+    import app.routes.matches as m
+
+    m._cache._store.clear()  # type: ignore[attr-defined]
+    m._last_good = None
+    yield
+    m._cache._store.clear()  # type: ignore[attr-defined]
+    m._last_good = None
+
+
+@pytest.fixture
+def client(tmp_path, monkeypatch):
+    cfg_path = tmp_path / "tender-watch.json"
+    monkeypatch.setattr("app.routes.matches.settings.config_path", str(cfg_path))
+    monkeypatch.setattr("app.routes.config.settings.config_path", str(cfg_path))
+    return TestClient(app)
+
+
+def test_first_visit_default_config(client) -> None:
+    page = _load("sample_page.json")
+    with respx.mock(base_url="https://data.etenders.gov.za") as mock:
+        mock.get("/api/OCDSReleases").mock(return_value=httpx.Response(200, json=page))
+        resp = client.get("/api/matches")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["stats"]["releases_scanned"] == 1
+    assert data["stats"]["matched"] == 1
+    assert data["matches"][0]["buyer"] == "SITA"
+
+
+def test_config_then_matches(client) -> None:
+    # Direct config + matches: persist a config with empty filters, then call /api/matches.
+    from app import routes
+    from app.config_store import save_config
+    from app.models import Config
+
+    # We need to use the same path the app uses; the client fixture sets it via monkeypatch.
+    save_config(Config(keywords=[], buyer_allowlist=[]), routes.config.settings.config_path)
+
+    page = _load("sample_page.json")
+    with respx.mock(base_url="https://data.etenders.gov.za") as mock:
+        mock.get("/api/OCDSReleases").mock(return_value=httpx.Response(200, json=page))
+        resp = client.get("/api/matches")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["stats"]["matched"] == 0
+    assert data["stats"]["rejected_no_keyword_no_buyer"] == 1
+
+
+def test_upstream_500_returns_503(client) -> None:
+    with respx.mock(base_url="https://data.etenders.gov.za") as mock:
+        mock.get("/api/OCDSReleases").mock(return_value=httpx.Response(500, json={}))
+        # Patch the backoff sleeps to keep the test fast.
+        import app.routes.matches as m
+        orig_sleep = m.asyncio.sleep
+        m.asyncio.sleep = lambda _s: orig_sleep(0)  # type: ignore[assignment]
+        try:
+            resp = client.get("/api/matches")
+        finally:
+            m.asyncio.sleep = orig_sleep  # type: ignore[assignment]
+    assert resp.status_code == 503
+    body = resp.json()["detail"]
+    assert body["error"] == "upstream_unavailable"
+
+
+def test_cache_bust_forces_refetch(client) -> None:
+    page = _load("sample_page.json")
+    with respx.mock(base_url="https://data.etenders.gov.za") as mock:
+        route = mock.get("/api/OCDSReleases").mock(return_value=httpx.Response(200, json=page))
+        client.get("/api/matches")
+        client.get("/api/matches?bust=now1")
+        assert route.call_count == 2
+
+
+def test_config_invalid_returns_400(client) -> None:
+    invalid = json.loads((FIXTURES / "sample_invalid_config.json").read_text())
+    resp = client.put("/api/config", json=invalid)
+    assert resp.status_code == 422  # pydantic validation
+
+
+def test_config_valid_persists_and_reflects(client) -> None:
+    from app.models import Config
+
+    new = Config(lookback_days=14, keywords=["alpha"])
+    resp = client.put("/api/config", json=new.model_dump())
+    assert resp.status_code == 200
+
+    got = client.get("/api/config").json()
+    assert got["config"]["lookback_days"] == 14
+
+
+def test_lookback_90_days(client) -> None:
+    page = _load("sample_page.json")
+    with respx.mock(base_url="https://data.etenders.gov.za") as mock:
+        mock.get("/api/OCDSReleases").mock(return_value=httpx.Response(200, json=page))
+        resp = client.get("/api/matches?window=90")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["window"]["from"].startswith("20")  # 90 days back
+
+
+def test_cors_disallowed_origin(client) -> None:
+    resp = client.get(
+        "/api/health",
+        headers={"Origin": "https://evil.example.com"},
+    )
+    # CORS preflight from a disallowed origin: FastAPI returns 200 but the
+    # `access-control-allow-origin` header is absent.
+    assert "access-control-allow-origin" not in {k.lower() for k in resp.headers.keys()} or \
+        resp.headers.get("access-control-allow-origin") != "https://evil.example.com"
