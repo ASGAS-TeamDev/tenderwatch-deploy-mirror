@@ -1,0 +1,26 @@
+# Render Blueprint for the Tender Watch backend.
+# Docs: https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: tender-watch-backend
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: "pip install -e ."
+    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: TW_API_BASE
+        value: https://data.etenders.gov.za
+      - key: TW_CONFIG_PATH
+        value: /opt/render/project/src/backend/config/tender-watch.json
+      - key: TW_CACHE_TTL_SECONDS
+        value: "60"
+      - key: TW_ALLOWED_ORIGINS
+        value: https://tender-watch.vercel.app
+      - key: TW_LOG_LEVEL
+        value: INFO
+      - key: PYTHON_VERSION
+        value: 3.12.0
