@@ -42,8 +42,13 @@ class TTLCache(Generic[K, V]):
             if entry is not None and entry.expires_at > now:
                 return entry.value
             value = await loader()
-            self._store[key] = _Entry(value=value, expires_at=now + self._ttl)
+            # Re-capture `now` so the TTL window starts when the loader finished,
+            # not when the caller first hit the cache.
+            self._store[key] = _Entry(
+                value=value, expires_at=time.monotonic() + self._ttl,
+            )
             return value
 
     def invalidate(self, key: K) -> None:
         self._store.pop(key, None)
+        self._locks.pop(key, None)
