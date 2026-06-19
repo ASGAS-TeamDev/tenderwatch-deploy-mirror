@@ -1,9 +1,9 @@
 {
-  "uri": "https://data.etenders.gov.za/api/OCDSReleases",
+  "uri": "https://ocds-api.etenders.gov.za/api/OCDSReleases",
   "version": "1.0",
   "publisher": { "name": "eTenders", "uid": "ZA-eTenders" },
   "license": "https://opendatacommons.org/licenses/pddl/1-0/",
-  "publicationPolicy": "https://data.etenders.gov.za/policy",
+  "publicationPolicy": "https://ocds-api.etenders.gov.za/policy",
   "publishedDate": "2026-06-17T08:00:00Z",
   "releases": [
     {

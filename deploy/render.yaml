@@ -13,7 +13,7 @@ services:
     autoDeploy: true
     envVars:
       - key: TW_API_BASE
-        value: https://data.etenders.gov.za
+        value: https://ocds-api.etenders.gov.za
       - key: TW_CONFIG_PATH
         value: /opt/render/project/src/backend/config/tender-watch.json
       - key: TW_CACHE_TTL_SECONDS

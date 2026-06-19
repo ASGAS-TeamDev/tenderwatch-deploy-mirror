@@ -45,7 +45,7 @@ def client(tmp_path, monkeypatch):
 
 def test_first_visit_default_config(client) -> None:
     page = _load("sample_page.json")
-    with respx.mock(base_url="https://data.etenders.gov.za") as mock:
+    with respx.mock(base_url="https://ocds-api.etenders.gov.za") as mock:
         mock.get("/api/OCDSReleases").mock(return_value=httpx.Response(200, json=page))
         resp = client.get("/api/matches")
     assert resp.status_code == 200
@@ -65,7 +65,7 @@ def test_config_then_matches(client) -> None:
     save_config(Config(keywords=[], buyer_allowlist=[]), routes.config.settings.config_path)
 
     page = _load("sample_page.json")
-    with respx.mock(base_url="https://data.etenders.gov.za") as mock:
+    with respx.mock(base_url="https://ocds-api.etenders.gov.za") as mock:
         mock.get("/api/OCDSReleases").mock(return_value=httpx.Response(200, json=page))
         resp = client.get("/api/matches")
     assert resp.status_code == 200
@@ -75,7 +75,7 @@ def test_config_then_matches(client) -> None:
 
 
 def test_upstream_500_returns_503(client) -> None:
-    with respx.mock(base_url="https://data.etenders.gov.za") as mock:
+    with respx.mock(base_url="https://ocds-api.etenders.gov.za") as mock:
         mock.get("/api/OCDSReleases").mock(return_value=httpx.Response(500, json={}))
         # Patch the backoff sleeps to keep the test fast.
         import app.routes.matches as m
@@ -92,7 +92,7 @@ def test_upstream_500_returns_503(client) -> None:
 
 def test_cache_bust_forces_refetch(client) -> None:
     page = _load("sample_page.json")
-    with respx.mock(base_url="https://data.etenders.gov.za") as mock:
+    with respx.mock(base_url="https://ocds-api.etenders.gov.za") as mock:
         route = mock.get("/api/OCDSReleases").mock(return_value=httpx.Response(200, json=page))
         client.get("/api/matches")
         client.get("/api/matches?bust=now1")
@@ -118,7 +118,7 @@ def test_config_valid_persists_and_reflects(client) -> None:
 
 def test_lookback_90_days(client) -> None:
     page = _load("sample_page.json")
-    with respx.mock(base_url="https://data.etenders.gov.za") as mock:
+    with respx.mock(base_url="https://ocds-api.etenders.gov.za") as mock:
         mock.get("/api/OCDSReleases").mock(return_value=httpx.Response(200, json=page))
         resp = client.get("/api/matches?window=90")
     assert resp.status_code == 200

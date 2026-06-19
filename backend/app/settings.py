@@ -12,7 +12,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    api_base: str = "https://data.etenders.gov.za"
+    api_base: str = "https://ocds-api.etenders.gov.za"
     config_path: str = "./config/tender-watch.json"
     cache_ttl_seconds: int = 60
     allowed_origins: str = "http://localhost:5173"

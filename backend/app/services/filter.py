@@ -53,7 +53,10 @@ def apply_rules(release: dict[str, Any], config: Config, *, now: datetime) -> Fi
     buyer = (tender.get("buyer") or {}).get("name") or ""
     procuring_entity = (tender.get("procuringEntity") or {}).get("name") or ""
     value = tender.get("value") or {}
-    amount = value.get("amount")
+    # Treat amount=0 as "no value published" — eTenders often reports 0
+    # when the budget is undisclosed. Showing "R 0" in the UI is misleading.
+    raw_amount = value.get("amount")
+    amount: float | None = raw_amount if isinstance(raw_amount, (int, float)) and raw_amount > 0 else None
     closing_period = tender.get("tenderPeriod") or {}
     closing_iso = closing_period.get("endDate") or ""
     province = tender.get("province")
