@@ -64,31 +64,46 @@ export interface ConfigResponse {
   config_digest: string;
 }
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const resp = await fetch(url(path), {
-    ...init,
-    headers: { "Content-Type": "application/json", ...(init.headers ?? {}) },
-  });
-  if (!resp.ok) {
-    let detail: unknown = null;
-    try {
-      detail = await resp.json();
-    } catch {
-      // ignore
-    }
-    const message = (() => {
-      if (detail && typeof detail === "object" && "detail" in detail) {
-        const d = (detail as { detail: unknown }).detail;
-        if (typeof d === "string") return d;
-        if (d && typeof d === "object" && "error" in d) {
-          return (d as { error: string }).error;
-        }
+async function request<T>(path: string, init: RequestInit = {}, timeoutMs = 90_000): Promise<T> {
+  // Client-side timeout so a stuck backend doesn't pin the UI forever.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const resp = await fetch(url(path), {
+      ...init,
+      signal: controller.signal,
+      headers: { "Content-Type": "application/json", ...(init.headers ?? {}) },
+    });
+    if (!resp.ok) {
+      let detail: unknown = null;
+      try {
+        detail = await resp.json();
+      } catch {
+        // ignore
       }
-      return `HTTP ${resp.status}`;
-    })();
-    throw new Error(message);
+      const message = (() => {
+        if (detail && typeof detail === "object" && "detail" in detail) {
+          const d = (detail as { detail: unknown }).detail;
+          if (typeof d === "string") return d;
+          if (d && typeof d === "object" && "error" in d) {
+            return (d as { error: string }).error;
+          }
+        }
+        return `HTTP ${resp.status}`;
+      })();
+      throw new Error(message);
+    }
+    return resp.json() as Promise<T>;
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw new Error(
+        `Request timed out after ${Math.round(timeoutMs / 1000)}s — the backend may be slow to respond (cold start, rate limit, or large lookback window).`,
+      );
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
   }
-  return resp.json() as Promise<T>;
 }
 
 export function getHealth(): Promise<HealthResponse> {

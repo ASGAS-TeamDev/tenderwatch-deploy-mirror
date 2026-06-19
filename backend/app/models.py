@@ -17,7 +17,7 @@ DEFAULT_BUYER_ALLOWLIST = ["sita", "national treasury", "sars", "dcdt", "gcis"]
 
 
 class Config(BaseModel):
-    lookback_days: int = Field(default=30, ge=7, le=90)
+    lookback_days: int = Field(default=7, ge=7, le=90)
     page_size: int = Field(default=100, ge=1, le=1000)
     high_value_threshold_zar: float = Field(default=5_000_000, ge=0)
     closing_soon_days: int = Field(default=7, ge=1, le=60)

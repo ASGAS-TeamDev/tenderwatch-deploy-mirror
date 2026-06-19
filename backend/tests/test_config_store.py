@@ -10,7 +10,7 @@ from app.models import Config
 
 def test_load_config_returns_defaults_when_missing(tmp_path: Path) -> None:
     cfg = load_config(tmp_path / "tender-watch.json")
-    assert cfg.lookback_days == 30
+    assert cfg.lookback_days == 7
     assert cfg.page_size == 100
     assert "software" in cfg.keywords
 
@@ -36,4 +36,4 @@ def test_load_config_recovers_from_corrupt_file(tmp_path: Path) -> None:
     path.write_text("{not valid json", encoding="utf-8")
     cfg = load_config(path)
     # Corrupt file → fall back to defaults (and don't raise).
-    assert cfg.lookback_days == 30
+    assert cfg.lookback_days == 7

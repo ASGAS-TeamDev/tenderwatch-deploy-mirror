@@ -26,7 +26,7 @@ export default function App() {
   const loadMatches = useCallback(async (bustOverride?: number) => {
     setError(null);
     try {
-      const r = await getMatches({ window: config?.lookback_days ?? 30, includeClosed: config?.include_closed ?? true, bust: String(bustOverride ?? bust) });
+      const r = await getMatches({ window: config?.lookback_days ?? 7, includeClosed: config?.include_closed ?? true, bust: String(bustOverride ?? bust) });
       setData(r);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load matches");
@@ -60,7 +60,7 @@ export default function App() {
           <div>
             <h1 className="text-3xl font-black text-primary">Tender Watch</h1>
             <p className="text-xs text-on-surface-variant">
-              {data ? `${data.stats.matched} matches from the last ${config?.lookback_days ?? 30} days` : "Loading…"}
+              {data ? `${data.stats.matched} matches from the last ${config?.lookback_days ?? 7} days` : "Loading…"}
             </p>
           </div>
           <HealthChip health={health} />

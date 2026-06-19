@@ -9,7 +9,7 @@ from app.models import Config
 @pytest.fixture
 def default_config() -> Config:
     return Config(
-        lookback_days=30,
+        lookback_days=7,
         page_size=100,
         high_value_threshold_zar=5_000_000,
         closing_soon_days=7,

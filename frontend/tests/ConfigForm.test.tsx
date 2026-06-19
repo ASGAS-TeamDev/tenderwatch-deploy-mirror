@@ -6,7 +6,7 @@ import * as api from "../src/api/client";
 import type { Config } from "../src/api/client";
 
 const baseConfig: Config = {
-  lookback_days: 30,
+  lookback_days: 7,
   page_size: 100,
   high_value_threshold_zar: 5_000_000,
   closing_soon_days: 7,

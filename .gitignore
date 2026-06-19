@@ -21,6 +21,9 @@ coverage/
 .env.local
 .env.production
 
+# Vercel CLI metadata (project binding is set on first deploy, not committed)
+.vercel/
+
 # IDE
 .idea/
 .vscode/
