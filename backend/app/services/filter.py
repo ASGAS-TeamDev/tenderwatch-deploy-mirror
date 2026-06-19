@@ -50,7 +50,15 @@ def apply_rules(release: dict[str, Any], config: Config, *, now: datetime) -> Fi
     tender = release.get("tender") or {}
     status = (tender.get("status") or "").lower()
     title = tender.get("title") or ""
-    buyer = (tender.get("buyer") or {}).get("name") or ""
+    # Buyer name lives at `release.buyer.name` in OCDS; some releases also
+    # nest it at `tender.buyer.name`. Fall back across both.
+    release_buyer = release.get("buyer")
+    tender_buyer = tender.get("buyer")
+    buyer = (
+        (release_buyer.get("name") if isinstance(release_buyer, dict) else None)
+        or (tender_buyer.get("name") if isinstance(tender_buyer, dict) else None)
+        or ""
+    )
     procuring_entity = (tender.get("procuringEntity") or {}).get("name") or ""
     value = tender.get("value") or {}
     # Treat amount=0 as "no value published" — eTenders often reports 0
@@ -88,12 +96,16 @@ def apply_rules(release: dict[str, Any], config: Config, *, now: datetime) -> Fi
 
     # Soft-keep rules
     title_lower = title.lower()
+    description_lower = (tender.get("description") or "").lower()
     item_text = " ".join(
         (item.get("classification") or {}).get("description", "") for item in items
     ).lower()
+    # eTenders' titles are often procurement IDs (e.g. "SCMU3-P26/27-0103-HO")
+    # so we also search the description. This is what the user actually reads.
+    searchable = " ".join([title_lower, description_lower, item_text])
     matched_keywords = [
         kw for kw in config.keywords
-        if kw.lower() in title_lower or kw.lower() in item_text
+        if kw.lower() in searchable
     ]
     matched_buyers = [
         b for b in config.buyer_allowlist
