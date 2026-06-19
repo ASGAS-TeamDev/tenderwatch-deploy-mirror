@@ -8,6 +8,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+import httpx
 from fastapi import APIRouter, HTTPException, Query
 
 from app.config_store import load_config
@@ -58,7 +59,8 @@ async def get_matches(
         date_from = (now - timedelta(days=window)).isoformat().replace("+00:00", "Z")
 
         releases: list[dict[str, Any]] = []
-        # Exponential backoff: 1s, 5s, 25s — 3 attempts.
+        # Exponential backoff: 1s, 5s, 25s — 3 attempts on 5xx.
+        # 4xx and network errors fail fast (no point retrying a 404).
         delays = [1, 5, 25]
         last_exc: Exception | None = None
         for attempt in range(3):
@@ -73,6 +75,11 @@ async def get_matches(
                 last_exc = exc
                 if attempt < 2:
                     await asyncio.sleep(delays[attempt])
+            except httpx.HTTPError as exc:
+                # 4xx, network errors, timeouts — all upstream failures.
+                # No retry: a 404/401 keeps failing, and a timeout usually means we're rate-limited.
+                last_exc = EtendersError(f"upstream {type(exc).__name__}: {exc}")
+                break
         if last_exc is not None:
             # Exhaustion → 503 with cached_response.
             raise HTTPException(
