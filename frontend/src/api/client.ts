@@ -1,5 +1,15 @@
 // Types match the backend's Pydantic models (see backend/app/models.py).
 
+// API base URL: VITE_API_BASE is set at build time on Vercel (e.g. the Render
+// service URL). In dev, vite.config.ts proxies `/api/*` to localhost, so we
+// fall back to a relative origin (empty string → fetch uses the page origin).
+const API_BASE: string = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
+
+function url(path: string): string {
+  // path is expected to start with "/api/...".
+  return `${API_BASE}${path}`;
+}
+
 export interface Config {
   lookback_days: number;
   page_size: number;
@@ -55,7 +65,7 @@ export interface ConfigResponse {
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const resp = await fetch(path, {
+  const resp = await fetch(url(path), {
     ...init,
     headers: { "Content-Type": "application/json", ...(init.headers ?? {}) },
   });
