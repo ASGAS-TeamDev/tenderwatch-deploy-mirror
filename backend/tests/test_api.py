@@ -135,3 +135,25 @@ def test_cors_disallowed_origin(client) -> None:
     # `access-control-allow-origin` header is absent.
     assert "access-control-allow-origin" not in {k.lower() for k in resp.headers.keys()} or \
         resp.headers.get("access-control-allow-origin") != "https://evil.example.com"
+
+
+def test_cors_middleware_not_attached_when_origins_empty() -> None:
+    """When origins=[], CORSMiddleware must not be installed.
+
+    The lazy import is load-bearing: create_app does not yet exist when
+    test_api.py is imported, so a top-level import would break every
+    other test in this file. The test is meant to fail with ImportError
+    until Task 2 lands.
+    """
+    from app.main import create_app
+    from fastapi.middleware.cors import CORSMiddleware
+
+    test_app = create_app(origins=[])
+
+    # Direct check on the middleware stack — the canonical way to verify
+    # which middleware are installed.
+    assert CORSMiddleware not in [m.cls for m in test_app.user_middleware]
+
+    # Sanity: the route is still wired up.
+    client = TestClient(test_app)
+    assert client.get("/api/health").status_code == 200
