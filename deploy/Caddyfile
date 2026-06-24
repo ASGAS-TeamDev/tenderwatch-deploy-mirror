@@ -7,17 +7,17 @@ tenderwatch.galactix.co.za {
     root * /var/www/tender-watch
     encode gzip zstd
 
-    # SPA rewrite: any unknown path serves index.html so client-side
-    # routing works after page reloads.
-    try_files {path} /index.html
-    file_server
-
     # Backend traffic — proxied to the local uvicorn process.
     @api path /api/*
-    reverse_proxy @api 127.0.0.1:8000 {
-        # Forward the original Host header (uvicorn doesn't use it for
-        # routing, but logs are clearer with the real hostname).
-        header_up Host {host}
+
+    # Order matters inside this route block: the reverse_proxy runs first
+    # for /api/*, and only if the path doesn't match does the SPA rewrite
+    # and file_server take over. Caddy's global directive order would
+    # otherwise run try_files before reverse_proxy, breaking the API.
+    route {
+        reverse_proxy @api 127.0.0.1:8000
+        try_files {path} /index.html
+        file_server
     }
 
     log {
