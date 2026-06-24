@@ -9,7 +9,7 @@
 # Usage: sudo bash deploy/install.sh
 #
 # What it does:
-#   1. Pre-flight: verify the A record for tenderwatch.galactix.co.za
+#   1. Pre-flight: verify the A record for tender-watch.galactix.co.za
 #      resolves to this host's public IP. Aborts if not.
 #   2. Install OS packages (Caddy + Python 3.12 + rsync + node).
 #   3. Create the tender-watch system user.
@@ -25,7 +25,7 @@
 
 set -euo pipefail
 
-DOMAIN="tenderwatch.galactix.co.za"
+DOMAIN="tender-watch.galactix.co.za"
 PUBLIC_IP="$(curl -fsS https://api.ipify.org || true)"
 if [[ -z "${PUBLIC_IP:-}" ]]; then
     echo "FATAL: could not determine this host's public IP." >&2

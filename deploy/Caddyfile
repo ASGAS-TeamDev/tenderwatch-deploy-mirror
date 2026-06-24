@@ -3,7 +3,7 @@
 # backend (uvicorn) running on loopback. TLS is auto-issued by Caddy
 # via Let's Encrypt (ACME HTTP-01 on :80).
 
-tenderwatch.galactix.co.za {
+tender-watch.galactix.co.za {
     root * /var/www/tender-watch
     encode gzip zstd
 

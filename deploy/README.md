@@ -1,6 +1,6 @@
 # Tender Watch — Deploy
 
-Single-host deployment at `https://tenderwatch.galactix.co.za`. Caddy
+Single-host deployment at `https://tender-watch.galactix.co.za`. Caddy
 terminates TLS, serves the static Vite `dist/`, and reverse-proxies
 `/api/*` to uvicorn on loopback. `systemd` supervises uvicorn.
 
@@ -40,7 +40,7 @@ The install script is idempotent. It will:
 8. Write `/etc/caddy/Caddyfile` and validate it.
 9. Enable and start `caddy` and `tender-watch-backend` services.
 10. Wait for Let's Encrypt to issue the cert.
-11. Smoke-test `https://tenderwatch.galactix.co.za/api/health`.
+11. Smoke-test `https://tender-watch.galactix.co.za/api/health`.
 
 ## Updating the site
 
@@ -87,7 +87,7 @@ rebuilt on each process restart.
 
 ## Tearing down the old Vercel + Render setup
 
-Once the new site is verified at `https://tenderwatch.galactix.co.za`:
+Once the new site is verified at `https://tender-watch.galactix.co.za`:
 
 1. Log into the Render dashboard → cancel the `tender-watch-backend` service.
 2. Log into the Vercel dashboard → delete the `tender-watch` project.

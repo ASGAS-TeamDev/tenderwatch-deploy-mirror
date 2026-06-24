@@ -60,7 +60,7 @@ Status of every open item tracked across the v0.1.0 build. Sourced from `scope.m
 ## Resolved by v0.2.0
 
 - **Hosting choice** (from v0.1.0; revisited in `docs/superpowers/specs/2026-06-24-drop-vercel-render-design.md`)
-  - **Decision:** Single self-hosted origin at `tenderwatch.galactix.co.za`.
+  - **Decision:** Single self-hosted origin at `tender-watch.galactix.co.za`.
     Caddy terminates TLS (auto-issued via Let's Encrypt), serves the static
     Vite `dist/` at `/`, and reverse-proxies `/api/*` to uvicorn on
     `127.0.0.1:8000`. `systemd` supervises uvicorn.
@@ -78,7 +78,7 @@ Status of every open item tracked across the v0.1.0 build. Sourced from `scope.m
 - **TLS** (from `docs/superpowers/specs/2026-06-24-drop-vercel-render-design.md` §12)
   - **Decision:** Caddy auto-issues and renews a Let's Encrypt certificate
     via ACME HTTP-01 on port 80. No cert management by the operator.
-  - **Where it lives:** `deploy/Caddyfile` (the `tenderwatch.galactix.co.za`
+  - **Where it lives:** `deploy/Caddyfile` (the `tender-watch.galactix.co.za`
     block — TLS is implicit in Caddy when an email is configured globally).
 
 ## Deferred to v0.2.0

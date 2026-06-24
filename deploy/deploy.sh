@@ -22,7 +22,7 @@ for tool in rsync ssh npm getent awk; do
     fi
 done
 
-DOMAIN="tenderwatch.galactix.co.za"
+DOMAIN="tender-watch.galactix.co.za"
 
 if [[ $# -ge 1 ]]; then
     DEPLOY_TARGET="$1"

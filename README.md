@@ -23,7 +23,7 @@ backend's filesystem.
   chip, banners, empty state, flag pills). Calls the backend through the
   `VITE_API_BASE` URL (or the Vite dev-server proxy in development).
 - **Deploy** (`deploy/`) — Single self-hosted origin at
-  `tenderwatch.galactix.co.za`. Caddy terminates TLS (Let's Encrypt),
+  `tender-watch.galactix.co.za`. Caddy terminates TLS (Let's Encrypt),
   serves the Vite `dist/`, and reverse-proxies `/api/*` to uvicorn on
   loopback; `systemd` supervises uvicorn. `install.sh` is first-time
   host setup; `deploy.sh` ships laptop → host updates. See
@@ -132,7 +132,7 @@ edited through the in-app **Config** tab; raw JSON edits also work.
 
 ## Deploy
 
-Single-host deployment at `https://tenderwatch.galactix.co.za`. Caddy
+Single-host deployment at `https://tender-watch.galactix.co.za`. Caddy
 terminates TLS, serves the Vite `dist/`, and reverse-proxies `/api/*` to
 uvicorn on loopback. `systemd` supervises uvicorn.
 
@@ -144,7 +144,7 @@ uvicorn on loopback. `systemd` supervises uvicorn.
 First-time setup:
 
 ```bash
-# Add an A record: tenderwatch.galactix.co.za -> <host public IP>
+# Add an A record: tender-watch.galactix.co.za -> <host public IP>
 ssh user@<host-ip>
 cd <repo-root>
 sudo bash deploy/install.sh

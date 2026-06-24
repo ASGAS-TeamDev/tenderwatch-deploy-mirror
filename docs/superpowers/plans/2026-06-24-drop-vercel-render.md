@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace the Vercel (frontend) + Render (backend) deployment with a single self-hosted origin at `https://tenderwatch.galactix.co.za` served by Caddy, with the FastAPI backend supervised by systemd on loopback. The build stack (Vite + React, FastAPI) is unchanged.
+**Goal:** Replace the Vercel (frontend) + Render (backend) deployment with a single self-hosted origin at `https://tender-watch.galactix.co.za` served by Caddy, with the FastAPI backend supervised by systemd on loopback. The build stack (Vite + React, FastAPI) is unchanged.
 
 **Architecture:** One host. Caddy terminates TLS (auto-issued via Let's Encrypt), serves the static Vite `dist/` at `/`, and reverse-proxies `/api/*` to `uvicorn` on `127.0.0.1:8000`. `systemd` supervises uvicorn as the `tender-watch` system user. The frontend makes same-origin requests, so CORS is intentionally disabled in production. Only the deploy artefacts change; no feature code changes.
 
@@ -231,7 +231,7 @@ Create `deploy/Caddyfile` with this content:
 # backend (uvicorn) running on loopback. TLS is auto-issued by Caddy
 # via Let's Encrypt (ACME HTTP-01 on :80).
 
-tenderwatch.galactix.co.za {
+tender-watch.galactix.co.za {
     root * /var/www/tender-watch
     encode gzip zstd
 
@@ -261,7 +261,7 @@ tenderwatch.galactix.co.za {
 
 ```bash
 git add deploy/Caddyfile
-git commit -m "feat(deploy): add Caddyfile for tenderwatch.galactix.co.za
+git commit -m "feat(deploy): add Caddyfile for tender-watch.galactix.co.za
 
 Caddy v2 site config: serves the static Vite dist/ at /, reverse-proxies
 /api/* to uvicorn on 127.0.0.1:8000. TLS is auto-issued and renewed via
@@ -353,7 +353,7 @@ Create `deploy/install.sh` with this content:
 # Usage: sudo bash deploy/install.sh
 #
 # What it does:
-#   1. Pre-flight: verify the A record for tenderwatch.galactix.co.za
+#   1. Pre-flight: verify the A record for tender-watch.galactix.co.za
 #      resolves to this host's public IP. Aborts if not.
 #   2. Install OS packages (Caddy + Python 3.12 + rsync + node).
 #   3. Create the tender-watch system user.
@@ -369,7 +369,7 @@ Create `deploy/install.sh` with this content:
 
 set -euo pipefail
 
-DOMAIN="tenderwatch.galactix.co.za"
+DOMAIN="tender-watch.galactix.co.za"
 PUBLIC_IP="$(curl -fsS https://api.ipify.org || true)"
 if [[ -z "${PUBLIC_IP:-}" ]]; then
     echo "FATAL: could not determine this host's public IP." >&2
@@ -596,7 +596,7 @@ Create `deploy/deploy.sh` with this content:
 
 set -euo pipefail
 
-DOMAIN="tenderwatch.galactix.co.za"
+DOMAIN="tender-watch.galactix.co.za"
 
 if [[ $# -ge 1 ]]; then
     DEPLOY_TARGET="$1"
@@ -685,7 +685,7 @@ Overwrite the file with this content:
 ````markdown
 # Tender Watch — Deploy
 
-Single-host deployment at `https://tenderwatch.galactix.co.za`. Caddy
+Single-host deployment at `https://tender-watch.galactix.co.za`. Caddy
 terminates TLS, serves the static Vite `dist/`, and reverse-proxies
 `/api/*` to uvicorn on loopback. `systemd` supervises uvicorn.
 
@@ -725,7 +725,7 @@ The install script is idempotent. It will:
 8. Write `/etc/caddy/Caddyfile` and validate it.
 9. Enable and start `caddy` and `tender-watch-backend` services.
 10. Wait for Let's Encrypt to issue the cert.
-11. Smoke-test `https://tenderwatch.galactix.co.za/api/health`.
+11. Smoke-test `https://tender-watch.galactix.co.za/api/health`.
 
 ## Updating the site
 
@@ -772,7 +772,7 @@ rebuilt on each process restart.
 
 ## Tearing down the old Vercel + Render setup
 
-Once the new site is verified at `https://tenderwatch.galactix.co.za`:
+Once the new site is verified at `https://tender-watch.galactix.co.za`:
 
 1. Log into the Render dashboard → cancel the `tender-watch-backend` service.
 2. Log into the Vercel dashboard → delete the `tender-watch` project.
@@ -898,7 +898,7 @@ In `README.md`, find the block that starts with `## Deploy` and ends right befor
 ````markdown
 ## Deploy
 
-Single-host deployment at `https://tenderwatch.galactix.co.za`. Caddy
+Single-host deployment at `https://tender-watch.galactix.co.za`. Caddy
 terminates TLS, serves the Vite `dist/`, and reverse-proxies `/api/*` to
 uvicorn on loopback. `systemd` supervises uvicorn.
 
@@ -910,7 +910,7 @@ uvicorn on loopback. `systemd` supervises uvicorn.
 First-time setup:
 
 ```bash
-# Add an A record: tenderwatch.galactix.co.za -> <host public IP>
+# Add an A record: tender-watch.galactix.co.za -> <host public IP>
 ssh user@<host-ip>
 cd <repo-root>
 sudo bash deploy/install.sh
@@ -1075,7 +1075,7 @@ the new block sits between "Resolved during build" and "Deferred"):
 ## Resolved by v0.2.0
 
 - **Hosting choice** (from v0.1.0; revisited in `docs/superpowers/specs/2026-06-24-drop-vercel-render-design.md`)
-  - **Decision:** Single self-hosted origin at `tenderwatch.galactix.co.za`.
+  - **Decision:** Single self-hosted origin at `tender-watch.galactix.co.za`.
     Caddy terminates TLS (auto-issued via Let's Encrypt), serves the static
     Vite `dist/` at `/`, and reverse-proxies `/api/*` to uvicorn on
     `127.0.0.1:8000`. `systemd` supervises uvicorn.
@@ -1093,7 +1093,7 @@ the new block sits between "Resolved during build" and "Deferred"):
 - **TLS** (from `docs/superpowers/specs/2026-06-24-drop-vercel-render-design.md` §12)
   - **Decision:** Caddy auto-issues and renews a Let's Encrypt certificate
     via ACME HTTP-01 on port 80. No cert management by the operator.
-  - **Where it lives:** `deploy/Caddyfile` (the `tenderwatch.galactix.co.za`
+  - **Where it lives:** `deploy/Caddyfile` (the `tender-watch.galactix.co.za`
     block — TLS is implicit in Caddy when an email is configured globally).
 
 ```
@@ -1187,7 +1187,7 @@ Print (or paste into chat) a one-line summary of:
 
 - Number of commits since the spec.
 - Test counts (backend / frontend).
-- The hostname to use for the production deploy: `tenderwatch.galactix.co.za`.
+- The hostname to use for the production deploy: `tender-watch.galactix.co.za`.
 - The single command the operator runs on a fresh host:
   `sudo bash deploy/install.sh`.
 - The single command the operator runs on their laptop to ship updates:
