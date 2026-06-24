@@ -57,6 +57,30 @@ Status of every open item tracked across the v0.1.0 build. Sourced from `scope.m
   - **Decision:** In-process cache is acceptable for v1 because the spec deploys one Render instance. Documented in the implementation plan §6 deployment notes (single-instance assumption); would move to Redis only if multi-instance is needed.
   - **Where it lives:** `backend/app/services/cache.py` (TTLCache; commit `ededeb2`).
 
+## Resolved by v0.2.0
+
+- **Hosting choice** (from v0.1.0; revisited in `docs/superpowers/specs/2026-06-24-drop-vercel-render-design.md`)
+  - **Decision:** Single self-hosted origin at `tenderwatch.galactix.co.za`.
+    Caddy terminates TLS (auto-issued via Let's Encrypt), serves the static
+    Vite `dist/` at `/`, and reverse-proxies `/api/*` to uvicorn on
+    `127.0.0.1:8000`. `systemd` supervises uvicorn.
+  - **Where it lives:** `deploy/Caddyfile`; `deploy/tender-watch-backend.service`;
+    `deploy/install.sh`; `deploy/deploy.sh`; spec
+    `docs/superpowers/specs/2026-06-24-drop-vercel-render-design.md`.
+
+- **CORS** (from `docs/superpowers/specs/2026-06-24-drop-vercel-render-design.md` §4.1)
+  - **Decision:** Production `TW_ALLOWED_ORIGINS=""`. `create_app(origins=[])`
+    in `backend/app/main.py` skips attaching `CORSMiddleware` entirely. The
+    SPA makes same-origin requests because Caddy reverse-proxies `/api/*`.
+  - **Where it lives:** `backend/app/main.py` (`create_app` factory);
+    `backend/tests/test_api.py::test_cors_middleware_not_attached_when_origins_empty`.
+
+- **TLS** (from `docs/superpowers/specs/2026-06-24-drop-vercel-render-design.md` §12)
+  - **Decision:** Caddy auto-issues and renews a Let's Encrypt certificate
+    via ACME HTTP-01 on port 80. No cert management by the operator.
+  - **Where it lives:** `deploy/Caddyfile` (the `tenderwatch.galactix.co.za`
+    block — TLS is implicit in Caddy when an email is configured globally).
+
 ## Deferred to v0.2.0
 
 - **Real production page-size ceiling probe** (implementation plan §5 item 1, scope.md Open questions 2)
