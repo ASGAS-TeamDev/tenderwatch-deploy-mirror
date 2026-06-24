@@ -22,12 +22,16 @@ backend's filesystem.
   Three views (List, Detail drawer, Config) plus shared chrome (tabs, health
   chip, banners, empty state, flag pills). Calls the backend through the
   `VITE_API_BASE` URL (or the Vite dev-server proxy in development).
-- **Deploy** (`deploy/`) — `render.yaml` for the FastAPI service and
-  `vercel.json` for the SPA. CORS is pinned to the deployed origins.
+- **Deploy** (`deploy/`) — Single self-hosted origin at
+  `tenderwatch.galactix.co.za`. Caddy terminates TLS (Let's Encrypt),
+  serves the Vite `dist/`, and reverse-proxies `/api/*` to uvicorn on
+  loopback; `systemd` supervises uvicorn. `install.sh` is first-time
+  host setup; `deploy.sh` ships laptop → host updates. See
+  `deploy/README.md` for the runbook.
 
-See `docs/superpowers/specs/2026-06-17-tender-watch-app-design.md` for the
-full design spec and `docs/superpowers/plans/2026-06-17-tender-watch-app.md`
-for the implementation plan.
+Design spec: `docs/superpowers/specs/2026-06-24-drop-vercel-render-design.md`
+(self-hosting choice). v0.1.0 design history:
+`docs/superpowers/specs/2026-06-17-tender-watch-app-design.md`.
 
 ## Quick start
 
@@ -67,8 +71,9 @@ cd backend
 .venv\Scripts\python -m pytest -v
 ```
 
-24 tests cover the eTenders client, filter pipeline (T8–T12), config store,
-TTL cache (T4), and the three API routes (T1, T2, T3, T5, T6, T7, T13, T16).
+25 tests cover the eTenders client, filter pipeline (T8–T12), config store,
+TTL cache (T4), the three API routes (T1, T2, T3, T5, T6, T7, T13, T16), and
+the CORS middleware (skipped in production).
 
 ### Frontend
 
@@ -183,4 +188,3 @@ rendered as text, so even hostile upstream titles cannot inject markup.
   public-facing republishing site would need its own licence review.
 
 [pddl]: https://opendatacommons.org/licenses/pddl/1-0/
-# TenderWatch
