@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Tender Watch — one-time host setup.
 #
-# Idempotent: skips steps that are already done (re-running this script
-# is safe; it will not blow away an existing install).
+# Idempotent: re-running is safe and will not blow away an existing
+# install. It is INTENTIONALLY a no-op for already-installed code —
+# for shipping code changes to an existing install, use deploy.sh
+# (laptop -> host rsync) instead.
 #
 # Usage: sudo bash deploy/install.sh
 #
@@ -75,7 +77,7 @@ case "$PKG_MGR" in
         ;;
     dnf)
         echo "INFO: dnf detected. Caddy is not in RHEL/Fedora defaults — install manually first." >&2
-        dnf install -y python3.12 python3.12-pip rsync nodejs npm
+        dnf install -y python3.12 python3.12-venv python3.12-pip rsync nodejs npm
         ;;
 esac
 
@@ -90,7 +92,7 @@ echo "[4/12] Creating directories ..."
 mkdir -p /opt/tender-watch /etc/tender-watch /var/www/tender-watch /var/log/caddy
 chown -R tender-watch:tender-watch /opt/tender-watch /etc/tender-watch
 # /var/www/tender-watch must be readable by the Caddy user (www-data on Debian).
-chown -R www-data:www-data /var/www/tender-watch || true
+# (Final chown happens in step 8 after the SPA dist is copied.)
 
 # --- 5. Backend venv + deps --------------------------------------------------
 echo "[5/12] Setting up backend venv ..."
@@ -98,15 +100,15 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 if [[ ! -d /opt/tender-watch/backend/.venv ]]; then
     cp -r "$REPO_ROOT/backend" /opt/tender-watch/
     chown -R tender-watch:tender-watch /opt/tender-watch/backend
-    sudo -u tender-watch python3.12 -m venv /opt/tender-watch/backend/.venv
-    sudo -u tender-watch /opt/tender-watch/backend/.venv/bin/pip install --upgrade pip
-    sudo -u tender-watch /opt/tender-watch/backend/.venv/bin/pip install -e "/opt/tender-watch/backend[prod]"
+    sudo --shell /bin/sh -u tender-watch python3.12 -m venv /opt/tender-watch/backend/.venv
+    sudo --shell /bin/sh -u tender-watch /opt/tender-watch/backend/.venv/bin/pip install --upgrade pip
+    sudo --shell /bin/sh -u tender-watch /opt/tender-watch/backend/.venv/bin/pip install -e "/opt/tender-watch/backend[prod]"
 fi
 
 # --- 6. Seed config.json -----------------------------------------------------
 echo "[6/12] Seeding config.json ..."
 if [[ ! -f /etc/tender-watch/config.json ]]; then
-    sudo -u tender-watch /opt/tender-watch/backend/.venv/bin/python -c \
+    sudo --shell /bin/sh -u tender-watch /opt/tender-watch/backend/.venv/bin/python -c \
         "from app.models import Config; print(Config().model_dump_json(indent=2))" \
         > /etc/tender-watch/config.json
     chown root:tender-watch /etc/tender-watch/config.json
@@ -133,7 +135,7 @@ if [[ ! -d /opt/tender-watch/frontend ]]; then
     cp -r "$REPO_ROOT/frontend" /opt/tender-watch/
     chown -R tender-watch:tender-watch /opt/tender-watch/frontend
 fi
-sudo -u tender-watch bash -c '
+sudo --shell /bin/sh -u tender-watch bash -c '
     cd /opt/tender-watch/frontend
     npm ci
     npm run build
@@ -144,6 +146,10 @@ chown -R www-data:www-data /var/www/tender-watch
 
 # --- 9. Caddyfile ------------------------------------------------------------
 echo "[9/12] Writing Caddyfile ..."
+# Caddyfile gate: if a Caddyfile mentioning $DOMAIN is already deployed,
+# we don't overwrite it — operator edits to /etc/caddy/Caddyfile are
+# preserved. For repo changes to deploy/Caddyfile, edit the deployed
+# file directly or 'sudo systemctl reload caddy' after manual edit.
 if ! grep -q "$DOMAIN" /etc/caddy/Caddyfile 2>/dev/null; then
     # Back up any existing Caddyfile.
     [[ -f /etc/caddy/Caddyfile ]] && cp /etc/caddy/Caddyfile /etc/caddy/Caddyfile.bak.$(date +%s)
@@ -162,13 +168,11 @@ systemctl enable --now tender-watch-backend
 echo "[11/12] Waiting for Let's Encrypt cert ..."
 SUCCESS=0
 for _ in $(seq 1 60); do
-    if caddy list-modules 2>/dev/null | grep -q "^http.handlers.reverse_proxy$"; then
-        # Check that Caddy successfully obtained a cert.
-        if journalctl -u caddy --since "1 min ago" --no-pager 2>/dev/null \
+    if systemctl is-active --quiet caddy \
+            && journalctl -u caddy --since "1 min ago" --no-pager 2>/dev/null \
                 | grep -qiE "certificate obtained successfully|obtained certificate"; then
-            SUCCESS=1
-            break
-        fi
+        SUCCESS=1
+        break
     fi
     sleep 2
 done
