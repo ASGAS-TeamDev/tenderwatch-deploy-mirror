@@ -25,13 +25,11 @@ internet ──▶ :80 / :443  (Caddy, TLS termination)
                                                           └─▶ https://ocds-api.etenders.gov.za   (upstream, runtime)
 ```
 
-- **Subdomain.** `tenderwatch.<company-domain>`. The placeholder
-  `<company-domain>` is substituted into `deploy/Caddyfile` and
-  `install.sh` at install time. The exact domain is supplied by the operator
-  (out of scope for the spec).
-- **A record.** `tenderwatch.<company-domain>` → public IP of the host.
-  Lowered TTL (300s) at least 24h before cutover so the DNS switch propagates
-  in ≤5 min.
+- **Subdomain.** `tenderwatch.galactix.co.za`. Confirmed by the operator
+  2026-06-24.
+- **A record.** `tenderwatch.galactix.co.za` → public IP of the host. Lowered
+  TTL (300s) at least 24h before cutover so the DNS switch propagates in
+  ≤5 min.
 - **Caddy** terminates TLS, serves the static SPA at `/`, and reverse-proxies
   `/api/*` to uvicorn on loopback. Caddy auto-issues and renews a Let's Encrypt
   cert via the ACME HTTP-01 challenge on port 80.
@@ -125,7 +123,7 @@ the page origin is the API origin because Caddy reverse-proxies `/api/*`.
 ## 5. Caddyfile shape
 
 ```
-tenderwatch.<company-domain> {
+tenderwatch.galactix.co.za {
     root * /var/www/tender-watch
     encode gzip zstd
     try_files {path} /index.html
@@ -192,7 +190,7 @@ steps that are already done.
 
 1. **Pre-flight.** Verify the script is running as root. Resolve the public
    IP of the host and confirm an A record exists for
-   `tenderwatch.<company-domain>` pointing at it (uses `getent hosts`).
+   `tenderwatch.galactix.co.za` pointing at it (uses `getent hosts`).
    Refuse to continue if not.
 2. **Packages.** Add Caddy's official Cloudsmith apt repo + keyring, then
    `apt-get install -y caddy python3.12 python3.12-venv python3-pip rsync`.
@@ -210,7 +208,8 @@ steps that are already done.
    copy `dist/` to `/var/www/tender-watch/`. Owner `www-data` (Caddy's user)
    so the file_server can read it.
 9. **Caddy config.** Write `/etc/caddy/Caddyfile` from §5, with the real
-   `<company-domain>` substituted. `caddy validate` the result. Refuse to
+   `tenderwatch.galactix.co.za` baked in (no placeholder). `caddy validate`
+   the result. Refuse to
    continue on validation failure.
 10. **systemd unit.** Write `/etc/systemd/system/tender-watch-backend.service`
     from §6.
@@ -219,7 +218,7 @@ steps that are already done.
 12. **Wait for cert.** Loop for up to 60s checking `systemctl status caddy`
     and `journalctl -u caddy --since "1 min ago"` for a successful ACME issue.
     Print a clear failure message if it times out.
-13. **Smoke test.** `curl -fsS https://tenderwatch.<company-domain>/api/health`.
+13. **Smoke test.** `curl -fsS https://tenderwatch.galactix.co.za/api/health`.
     Print the result.
 14. **Print summary.** Where the config file lives, how to view logs, how to
     deploy updates.
@@ -233,7 +232,9 @@ bash deploy/deploy.sh [user@host]
 ```
 
 Defaults `user@host` to whatever the operator exports as `TW_DEPLOY_HOST`,
-falling back to `tender-watch@<host>`.
+falling back to `tender-watch@<host-ip>`, where `<host-ip>` is the same
+public IP the A record points at (operator passes via the `$1` arg or by
+setting the env var).
 
 1. `rsync -az --delete frontend/dist/ $TW_DEPLOY_HOST:/var/www/tender-watch/`.
 2. `rsync -az --delete --exclude .venv --exclude __pycache__ --exclude .pytest_cache --exclude .ruff_cache backend/ $TW_DEPLOY_HOST:/opt/tender-watch/backend/`.
@@ -248,7 +249,7 @@ client timeout and its retry-on-Refresh-↻ button.
 
 Same as today, with the reverse-proxy hop inserted:
 
-1. Browser → `GET https://tenderwatch.<company-domain>/api/matches?window=…`
+1. Browser → `GET https://tenderwatch.galactix.co.za/api/matches?window=…`
 2. Caddy → `reverse_proxy` → `127.0.0.1:8000/api/matches?…`
 3. uvicorn → `routes/matches.get_matches()` → `EtendersClient.fetch_releases()` → `apply_rules()`
 4. uvicorn → JSON → Caddy → browser
@@ -301,7 +302,7 @@ Same as today, with the reverse-proxy hop inserted:
 
 ## 13. Cutover plan
 
-1. **T-24h (operator).** Lower the TTL on `tenderwatch.<company-domain>` to
+1. **T-24h (operator).** Lower the TTL on `tenderwatch.galactix.co.za` to
    300s.
 2. **T-1h (operator).** Add the new A record pointing at the new host's IP.
    No traffic yet (nothing's listening on that IP from the box that *was*
