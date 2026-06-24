@@ -1,0 +1,23 @@
+[Unit]
+Description=Tender Watch backend (FastAPI)
+After=network.target
+
+[Service]
+Type=simple
+User=tender-watch
+Group=tender-watch
+WorkingDirectory=/opt/tender-watch/backend
+EnvironmentFile=/etc/tender-watch/backend.env
+ExecStart=/opt/tender-watch/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/etc/tender-watch
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
