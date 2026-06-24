@@ -127,22 +127,49 @@ edited through the in-app **Config** tab; raw JSON edits also work.
 
 ## Deploy
 
-- `deploy/render.yaml` — Render Blueprint for the FastAPI service.
-- `deploy/vercel.json` — Vercel project config with rewrites that fall back to
-  `index.html` for SPA routing.
+Single-host deployment at `https://tenderwatch.galactix.co.za`. Caddy
+terminates TLS, serves the Vite `dist/`, and reverse-proxies `/api/*` to
+uvicorn on loopback. `systemd` supervises uvicorn.
 
-Set the env vars in each host's dashboard (Render: `TW_*`, Vercel:
-`VITE_API_BASE` pointing at the Render service).
+- `deploy/Caddyfile` — Caddy v2 site config (installed by `install.sh`).
+- `deploy/tender-watch-backend.service` — systemd unit for uvicorn.
+- `deploy/install.sh` — first-time host setup. Idempotent.
+- `deploy/deploy.sh` — laptop -> host updates.
+
+First-time setup:
+
+```bash
+# Add an A record: tenderwatch.galactix.co.za -> <host public IP>
+ssh user@<host-ip>
+cd <repo-root>
+sudo bash deploy/install.sh
+```
+
+Updates:
+
+```bash
+bash deploy/deploy.sh
+```
+
+See `deploy/README.md` for the full runbook (daily ops, backups,
+teardown of the old Vercel + Render setup).
 
 ## Security & hardening
 
-This is a personal tool intended to live on a hard-to-guess URL. The plan
-calls out no auth in v1 — see design spec §8 for the mitigations to layer on
-if the URL is ever shared:
+This is a personal tool intended to live on an unguessable subdomain
+of `galactix.co.za`. No auth at the application layer — the
+subdomain is the only protection. The host is hardened by:
 
-- Random, unguessable subdomain on Render / Vercel.
-- Optional reverse-proxy basic auth in front of the backend.
-- Cloudflare Access (Zero Trust) in front of either host.
+- Caddy auto-issuing and renewing a Let's Encrypt TLS certificate
+  (Mozilla "A" grade by default).
+- uvicorn binding to `127.0.0.1:8000` only — never reachable from
+  off-host, even if the firewall is misconfigured.
+- `systemd ProtectSystem=strict` confining the backend process to
+  writing only `/etc/tender-watch` (where the config JSON lives).
+
+If the URL is ever shared more widely, recommended mitigations (out of
+scope for v1) are: HTTP basic auth in front of Caddy, or Cloudflare
+Access (Zero Trust) in front of the host.
 
 The frontend never renders API content as HTML — every release string is
 rendered as text, so even hostile upstream titles cannot inject markup.
