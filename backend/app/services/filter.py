@@ -72,12 +72,14 @@ def apply_rules(release: dict[str, Any], config: Config, *, now: datetime) -> Fi
     # eTenders has no standalone HTML tender detail page — the old
     # /release/<ocid> URL is dead (etenders.gov.za has no DNS A record;
     # /release/<ocid> 404s on www.etenders.gov.za). The portal uses
-    # DataTables inline expansion via AJAX to /Home/tenderDetails?ID=<id>
-    # (JSON only, not a viewable page). The best deep-link is to the
-    # opportunities page pre-filtered by the tender title (which is the
-    # procurement ID, e.g. "ZNQUMGDO 02-26/27"), with the correct status
-    # tab. The eTenders JS reads ?filter=&search= from the URL and
-    # pre-filters the list (confirmed 2026-07-22).
+    # jQuery DataTables inline expansion via AJAX to /Home/tenderDetails
+    # (JSON only, not a viewable page). There is no URL that renders a
+    # single tender, and the ?filter=&search= params are broken on their
+    # site (loadTendersHome is an undefined function — the page loads all
+    # tenders unfiltered). Best we can do: link to the opportunities page
+    # on the correct status tab so the user lands in the right list and
+    # can use QuickFind to search by tender number. Map OCDS status to
+    # the eTenders tab id (1=active, 2=awarded, 3=cancelled, 4=closed).
     _status_to_tab = {
         "active": 1, "planning": 1, "planned": 1,
         "awarded": 2, "complete": 2,
@@ -85,9 +87,7 @@ def apply_rules(release: dict[str, Any], config: Config, *, now: datetime) -> Fi
         "closed": 4,
     }
     _tab = _status_to_tab.get(status, 1)
-    from urllib.parse import quote
-    _search = quote(title)
-    link = f"https://www.etenders.gov.za/Home/opportunities?id={_tab}&filter={_search}&search={_search}"
+    link = f"https://www.etenders.gov.za/Home/opportunities?id={_tab}"
     items = tender.get("items") or []
 
     result = FilterResult(

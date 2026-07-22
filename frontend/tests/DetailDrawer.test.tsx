@@ -15,7 +15,7 @@ const match: Match = {
   days_to_close: 28,
   province: "Gauteng",
   category: "IT services",
-  link: "https://www.etenders.gov.za/Home/opportunities?id=1&filter=Provision%20of%20Cloud%20Hosting%20Services%20for%20Government%20Departments&search=Provision%20of%20Cloud%20Hosting%20Services%20for%20Government%20Departments",
+  link: "https://www.etenders.gov.za/Home/opportunities?id=1",
   flags: ["high-value", "closing-soon"],
   matched_on: { keywords: ["cloud"], buyers: ["sita"] },
 };
