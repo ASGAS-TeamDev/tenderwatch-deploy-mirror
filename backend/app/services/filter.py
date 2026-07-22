@@ -24,6 +24,17 @@ class FilterResult:
     province: str | None = None
     category: str | None = None
     link: str = ""
+    # Rich fields added 2026-07-22
+    description: str = ""
+    status: str = ""
+    procurement_method: str = ""
+    delivery_location: str = ""
+    special_conditions: str = ""
+    contact_person: dict | None = None
+    briefing_session: dict | None = None
+    documents: list[dict] = field(default_factory=list)
+    published_date: str = ""
+    tender_start_date: str = ""
 
 
 HARD_REJECT_STATUSES = {"cancelled", "unsuccessful", "withdrawn"}
@@ -90,6 +101,48 @@ def apply_rules(release: dict[str, Any], config: Config, *, now: datetime) -> Fi
     link = f"https://www.etenders.gov.za/Home/opportunities?id={_tab}"
     items = tender.get("items") or []
 
+    # --- Rich fields (added 2026-07-22) ------------------------------------
+    # All of these come straight from the eTenders OCDS release payload.
+    # No additional API calls needed — the data was already fetched.
+    description = tender.get("description") or ""
+    procurement_method = tender.get("procurementMethodDetails") or ""
+    delivery_location = tender.get("deliveryLocation") or ""
+    special_conditions = tender.get("specialConditions") or ""
+    published_date = (release.get("date") or "")[:10]  # ISO date → YYYY-MM-DD
+    tender_start_date = (closing_period.get("startDate") or "")[:10]
+
+    # Contact person — name, email, telephone
+    contact_raw = tender.get("contactPerson") or {}
+    contact_person = None
+    if isinstance(contact_raw, dict) and (contact_raw.get("name") or contact_raw.get("email") or contact_raw.get("telephoneNumber")):
+        contact_person = {
+            "name": contact_raw.get("name") or "",
+            "email": contact_raw.get("email") or "",
+            "telephone": contact_raw.get("telephoneNumber") or "",
+        }
+
+    # Briefing session — is_session, compulsory, date, venue
+    briefing_raw = tender.get("briefingSession") or {}
+    briefing_session = None
+    if isinstance(briefing_raw, dict) and briefing_raw.get("isSession"):
+        briefing_session = {
+            "has_session": True,
+            "compulsory": bool(briefing_raw.get("compulsory")),
+            "date": (briefing_raw.get("date") or "")[:10] if briefing_raw.get("date") and briefing_raw.get("date") != "0001-01-01T00:00:00Z" else "",
+            "venue": briefing_raw.get("venue") or "",
+        }
+
+    # Documents — title, url, format, date_published (direct download links)
+    documents = []
+    for doc in (tender.get("documents") or []):
+        if isinstance(doc, dict) and doc.get("url"):
+            documents.append({
+                "title": doc.get("title") or doc.get("description") or "Document",
+                "url": doc.get("url") or "",
+                "format": doc.get("format") or "",
+                "date_published": (doc.get("datePublished") or "")[:10],
+            })
+
     result = FilterResult(
         keep=False,
         title=title,
@@ -102,6 +155,16 @@ def apply_rules(release: dict[str, Any], config: Config, *, now: datetime) -> Fi
         province=province,
         category=category,
         link=link,
+        description=description,
+        status=status,
+        procurement_method=procurement_method,
+        delivery_location=delivery_location,
+        special_conditions=special_conditions,
+        contact_person=contact_person,
+        briefing_session=briefing_session,
+        documents=documents,
+        published_date=published_date,
+        tender_start_date=tender_start_date,
     )
 
     # Hard-reject rules

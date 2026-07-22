@@ -26,6 +26,26 @@ class Config(BaseModel):
     buyer_allowlist: list[str] = Field(default_factory=lambda: list(DEFAULT_BUYER_ALLOWLIST))
 
 
+class TenderDocument(BaseModel):
+    title: str
+    url: str
+    format: str | None = None
+    date_published: str | None = None
+
+
+class ContactPerson(BaseModel):
+    name: str = ""
+    email: str = ""
+    telephone: str = ""
+
+
+class BriefingSession(BaseModel):
+    has_session: bool = False
+    compulsory: bool = False
+    date: str = ""
+    venue: str = ""
+
+
 class Match(BaseModel):
     ocid: str
     title: str
@@ -40,6 +60,18 @@ class Match(BaseModel):
     link: str
     flags: list[Literal["high-value", "closing-soon", "closed"]]
     matched_on: dict[str, list[str]]
+    # Rich fields added 2026-07-22 — all available in the eTenders OCDS
+    # payload but not surfaced in v1.
+    description: str = ""
+    status: str = ""
+    procurement_method: str = ""
+    delivery_location: str = ""
+    special_conditions: str = ""
+    contact_person: ContactPerson | None = None
+    briefing_session: BriefingSession | None = None
+    documents: list[TenderDocument] = []
+    published_date: str = ""
+    tender_start_date: str = ""
 
 
 class Stats(BaseModel):

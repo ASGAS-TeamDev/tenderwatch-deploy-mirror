@@ -7,8 +7,12 @@
     "status": "active",
     "category": "IT services",
     "province": "Gauteng",
+    "description": "Provision of cloud hosting and managed infrastructure services for all government departments.",
+    "procurementMethodDetails": "Open Tender",
+    "deliveryLocation": "124 Pretorius Street, Pretoria",
+    "specialConditions": "Documents available from 15/06/2026 to 20/06/2026",
     "value": { "amount": 12500000, "currency": "ZAR" },
-    "tenderPeriod": { "endDate": "2026-07-15T17:00:00Z" },
+    "tenderPeriod": { "startDate": "2026-06-15T08:00:00Z", "endDate": "2026-07-15T17:00:00Z" },
     "buyer": { "name": "SITA" },
     "procuringEntity": { "name": "SITA" },
     "items": [
@@ -16,7 +20,18 @@
       { "classification": { "description": "Managed services" } }
     ],
     "documents": [
-      { "url": "https://etenders.gov.za/doc/1", "title": "Bid invitation" }
-    ]
+      { "url": "https://www.etenders.gov.za/home/Download?blobName=test1.doc", "title": "Bid invitation", "format": "doc", "datePublished": "2026-06-14T12:00:00Z" }
+    ],
+    "contactPerson": {
+      "name": "Jane Doe",
+      "email": "jane@sita.gov.za",
+      "telephoneNumber": "012-345-6789"
+    },
+    "briefingSession": {
+      "isSession": true,
+      "compulsory": true,
+      "date": "2026-06-20T10:00:00Z",
+      "venue": "SITA Head Office, Pretoria"
+    }
   }
 }

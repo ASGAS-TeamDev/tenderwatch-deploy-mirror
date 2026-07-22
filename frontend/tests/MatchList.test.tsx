@@ -17,6 +17,16 @@ const baseMatch: Match = {
   link: "https://www.etenders.gov.za/Home/opportunities?id=1",
   flags: ["high-value", "closing-soon"],
   matched_on: { keywords: ["cloud"], buyers: ["sita"] },
+  description: "Provision of cloud hosting and managed infrastructure services.",
+  status: "active",
+  procurement_method: "Open Tender",
+  delivery_location: "",
+  special_conditions: "",
+  contact_person: null,
+  briefing_session: null,
+  documents: [],
+  published_date: "",
+  tender_start_date: "",
 };
 
 describe("MatchList (T14)", () => {

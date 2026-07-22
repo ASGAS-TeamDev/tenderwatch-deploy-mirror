@@ -17,6 +17,11 @@ export function MatchCard({
         ))}
       </div>
       <h3 className="mt-2 text-base font-bold text-on-surface">{match.title}</h3>
+      {match.description && (
+        <p className="mt-1 line-clamp-2 text-xs text-on-surface-variant">
+          {match.description}
+        </p>
+      )}
       <p className="mt-1 text-xs text-on-surface-variant">
         {match.buyer} · {match.province ?? "—"} · Category: {match.category ?? "—"}
       </p>

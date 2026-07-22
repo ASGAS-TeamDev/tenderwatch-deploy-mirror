@@ -20,6 +20,26 @@ export interface Config {
   buyer_allowlist: string[];
 }
 
+export interface TenderDocument {
+  title: string;
+  url: string;
+  format: string | null;
+  date_published: string | null;
+}
+
+export interface ContactPerson {
+  name: string;
+  email: string;
+  telephone: string;
+}
+
+export interface BriefingSession {
+  has_session: boolean;
+  compulsory: boolean;
+  date: string;
+  venue: string;
+}
+
 export interface Match {
   ocid: string;
   title: string;
@@ -34,6 +54,17 @@ export interface Match {
   link: string;
   flags: Array<"high-value" | "closing-soon" | "closed">;
   matched_on: { keywords: string[]; buyers: string[] };
+  // Rich fields (added 2026-07-22)
+  description: string;
+  status: string;
+  procurement_method: string;
+  delivery_location: string;
+  special_conditions: string;
+  contact_person: ContactPerson | null;
+  briefing_session: BriefingSession | null;
+  documents: TenderDocument[];
+  published_date: string;
+  tender_start_date: string;
 }
 
 export interface Stats {

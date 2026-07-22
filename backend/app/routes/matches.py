@@ -122,6 +122,16 @@ async def get_matches(
                     link=result.link,
                     flags=result.flags,  # type: ignore[arg-type]
                     matched_on=result.matched_on,
+                    description=result.description,
+                    status=result.status,
+                    procurement_method=result.procurement_method,
+                    delivery_location=result.delivery_location,
+                    special_conditions=result.special_conditions,
+                    contact_person=result.contact_person,
+                    briefing_session=result.briefing_session,
+                    documents=result.documents,
+                    published_date=result.published_date,
+                    tender_start_date=result.tender_start_date,
                 )
             )
 
