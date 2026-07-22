@@ -16,7 +16,7 @@ export function MatchCard({
           <FlagPill key={f} flag={f} match={match} />
         ))}
       </div>
-      <h3 className="mt-2 text-base font-bold text-on-surface">{match.title}</h3>
+      <h3 className="mt-2 text-sm font-bold tracking-wide text-on-surface" style={{ fontFamily: "Michroma, sans-serif" }}>{match.title}</h3>
       {match.description && (
         <p className="mt-1 line-clamp-2 text-xs text-on-surface-variant">
           {match.description}

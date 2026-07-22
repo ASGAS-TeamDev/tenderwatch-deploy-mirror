@@ -16,9 +16,10 @@ export function Tabs({
             type="button"
             onClick={() => onChange(t.id)}
             className={[
-              "relative pb-2 text-sm",
+              "relative pb-2 text-sm tracking-wide",
               isActive ? "font-bold text-primary" : "text-on-surface-variant",
             ].join(" ")}
+            style={{ fontFamily: "Orbitron, sans-serif" }}
             aria-pressed={isActive}
           >
             {t.label}

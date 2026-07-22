@@ -55,11 +55,13 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-surface">
-      <header className="border-b border-outline-variant bg-surface px-8 py-4">
+      <header className="border-b border-outline-variant bg-gradient-to-r from-gradient-start to-gradient-end px-8 py-5">
         <div className="mx-auto flex max-w-6xl items-center justify-between">
           <div>
-            <h1 className="text-3xl font-black text-primary">Tender Watch</h1>
-            <p className="text-xs text-on-surface-variant">
+            <h1 className="text-2xl font-black tracking-wider text-on-dark-surface" style={{ fontFamily: "Michroma, sans-serif" }}>
+              TENDER WATCH
+            </h1>
+            <p className="mt-1 text-xs text-on-dark-surface/70">
               {data ? `${data.stats.matched} matches from the last ${config?.lookback_days ?? 7} days` : "Loading…"}
             </p>
           </div>
@@ -82,7 +84,7 @@ export default function App() {
                 setBust(newBust);
                 void loadMatches(newBust);
               }}
-              className="rounded-card bg-primary-container px-4 py-2 text-sm font-bold text-on-primary-container"
+              className="rounded-card bg-primary-bright px-4 py-2 text-sm font-bold text-on-primary transition hover:opacity-90"
             >
               Refresh ↻
             </button>

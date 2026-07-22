@@ -18,7 +18,7 @@ export function DetailDrawer({
     >
       <header className="flex items-start justify-between border-b border-outline-variant p-4">
         <div className="pr-8">
-          <h2 className="text-xl font-bold text-on-surface">{match.title}</h2>
+          <h2 className="text-lg font-bold tracking-wide text-on-surface" style={{ fontFamily: "Michroma, sans-serif" }}>{match.title}</h2>
           {match.status && (
             <span className="mt-1 inline-block rounded-pill bg-surface-variant px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">
               {match.status}
@@ -202,7 +202,7 @@ export function DetailDrawer({
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section>
-      <h3 className="mb-1 text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">
+      <h3 className="mb-1 text-[11px] font-bold uppercase tracking-wider text-on-surface-variant" style={{ fontFamily: "Orbitron, sans-serif" }}>
         {title}
       </h3>
       {children}

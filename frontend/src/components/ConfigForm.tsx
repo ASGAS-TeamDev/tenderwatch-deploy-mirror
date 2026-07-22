@@ -198,7 +198,7 @@ function Field({
 }: { label: string; helper?: string; error?: string | null; children: React.ReactNode }) {
   return (
     <label className="block space-y-1">
-      <span className="text-sm font-bold text-on-surface">{label}</span>
+      <span className="text-sm font-bold text-on-surface" style={{ fontFamily: "Orbitron, sans-serif" }}>{label}</span>
       {children}
       {error ? (
         <span className="text-xs font-bold text-error">{error}</span>

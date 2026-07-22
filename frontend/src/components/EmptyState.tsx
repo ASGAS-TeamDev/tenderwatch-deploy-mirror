@@ -4,7 +4,7 @@ export function EmptyState({
   return (
     <div className="flex flex-col items-center gap-3 py-12 text-center">
       <div className="h-12 w-12 rounded-full bg-surface-variant" aria-hidden />
-      <h2 className="text-lg font-bold text-on-surface">{headline}</h2>
+      <h2 className="text-lg font-bold text-on-surface" style={{ fontFamily: "Michroma, sans-serif" }}>{headline}</h2>
       <p className="max-w-prose text-sm text-on-surface-variant">{body}</p>
       {action && (
         <button
