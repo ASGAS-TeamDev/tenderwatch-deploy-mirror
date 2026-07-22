@@ -1,101 +1,116 @@
 #!/usr/bin/env bash
-# Tender Watch — one-time host setup.
+# Tender Watch — one-time host setup on 156.38.222.220 (shared xneelo Apache box).
 #
-# Idempotent: re-running is safe and will not blow away an existing
-# install. It is INTENTIONALLY a no-op for already-installed code —
-# for shipping code changes to an existing install, use deploy.sh
-# (laptop -> host rsync) instead.
+# Target domain: watch.titan-ai.co.za
+# Front-end:    Apache (already serving app/api/n8n.titan-ai.co.za on this box)
+# Back-end:     uvicorn on 127.0.0.1:8001, supervised by systemd
+# TLS:          Let's Encrypt via `certbot --apache` (certbot already installed
+#               — used for api.titan-ai.co.za)
+#
+# Idempotent: re-running is safe and will not blow away an existing install.
+# For shipping code changes to an existing install, use deploy.sh instead.
 #
 # Usage: sudo bash deploy/install.sh
 #
 # What it does:
-#   1. Pre-flight: verify the A record for tender-watch.galactix.co.za
-#      resolves to this host's public IP. Aborts if not.
-#   2. Install OS packages (Caddy + Python 3.12 + rsync + node).
-#   3. Create the tender-watch system user.
-#   4. Create the app, config, and log directories.
-#   5. Set up the Python venv and install backend deps.
-#   6. Seed /etc/tender-watch/config.json with Config() defaults.
-#   7. Write /etc/tender-watch/backend.env.
-#   8. Build the SPA and copy dist/ to /var/www/tender-watch/.
-#   9. Write /etc/caddy/Caddyfile and validate it.
-#  10. Write the systemd unit and enable both services.
-#  11. Wait for Caddy's ACME cert to issue.
-#  12. Smoke-test /api/health.
+#   1.  Pre-flight: confirm we are root, DNS resolves, port 8001 is free.
+#   2.  Install OS packages (Python 3.12 + rsync + node + certbot if missing).
+#   3.  Enable Apache modules: proxy, proxy_http, rewrite, headers, ssl.
+#   4.  Create the tender-watch system user.
+#   5.  Create app / config / docroot / log directories.
+#   6.  Set up the Python venv and install backend deps.
+#   7.  Seed /etc/tender-watch/config.json with Config() defaults.
+#   8.  Write /etc/tender-watch/backend.env (same-origin; TW_ALLOWED_ORIGINS="").
+#   9.  Build the SPA and copy dist/ to the docroot.
+#  10.  Install the Apache vhost, enable the site.
+#  11.  Install the systemd unit and enable both services (backend first).
+#  12.  Issue the TLS cert via certbot --apache.
+#  13.  Smoke-test https://watch.titan-ai.co.za/api/health.
 
 set -euo pipefail
 
-DOMAIN="tender-watch.galactix.co.za"
-PUBLIC_IP="$(curl -fsS https://api.ipify.org || true)"
+DOMAIN="watch.titan-ai.co.za"
+BACKEND_PORT="8001"
+DOCROOT="/var/www/watch.titan-ai.co.za"
+APACHE_VHOST_SRC="$(cd "$(dirname "$0")" && pwd)/apache/watch.titan-ai.co.za.conf"
+APACHE_VHOST_DST="/etc/apache2/sites-available/watch.titan-ai.co.za.conf"
+
+echo "=== Tender Watch install (Apache host) ==="
+echo "Domain:      $DOMAIN"
+echo "Backend port: 127.0.0.1:$BACKEND_PORT"
+echo "Docroot:     $DOCROOT"
+echo ""
+
+# --- 1. Pre-flight ----------------------------------------------------------
+echo "[1/13] Pre-flight ..."
+if [[ "$(id -u)" -ne 0 ]]; then
+    echo "FATAL: run with sudo. Usage: sudo bash deploy/install.sh" >&2
+    exit 1
+fi
+
+PUBLIC_IP="$(curl -fsS --max-time 10 https://api.ipify.org || true)"
 if [[ -z "${PUBLIC_IP:-}" ]]; then
     echo "FATAL: could not determine this host's public IP." >&2
     exit 1
 fi
 
-echo "=== Tender Watch install ==="
-echo "Domain:    $DOMAIN"
-echo "Public IP: $PUBLIC_IP"
-echo ""
-
-# --- 1. Pre-flight -----------------------------------------------------------
-echo "[1/12] Verifying DNS A record for $DOMAIN ..."
 RESOLVED_IP="$(getent hosts "$DOMAIN" | awk '{print $1; exit}')" || true
 if [[ -z "${RESOLVED_IP:-}" ]]; then
-    echo "FATAL: $DOMAIN does not resolve. Add an A record pointing at $PUBLIC_IP first." >&2
+    echo "FATAL: $DOMAIN does not resolve. Add an A record -> $PUBLIC_IP and re-run." >&2
     exit 1
 fi
 if [[ "$RESOLVED_IP" != "$PUBLIC_IP" ]]; then
     echo "FATAL: $DOMAIN resolves to $RESOLVED_IP, but this host is $PUBLIC_IP." >&2
-    echo "Fix the A record (or wait for DNS to propagate) and re-run." >&2
+    echo "Wait for DNS propagation and re-run." >&2
     exit 1
 fi
 echo "  OK: $DOMAIN -> $RESOLVED_IP"
 
-# --- 2. Packages -------------------------------------------------------------
-echo "[2/12] Installing OS packages ..."
-if command -v apt-get >/dev/null 2>&1; then
-    PKG_MGR=apt
-elif command -v dnf >/dev/null 2>&1; then
-    PKG_MGR=dnf
-else
-    echo "FATAL: neither apt-get nor dnf is available. Install Caddy + Python 3.12 manually." >&2
-    exit 1
+# Confirm Apache is the front-end (not nginx or caddy).
+if ! systemctl is-active --quiet apache2; then
+    echo "WARNING: apache2 is not active. This script assumes the xneelo Apache setup." >&2
+    echo "         If the box uses a different front-end, abort and re-plan." >&2
+    read -rp "Continue anyway? [y/N] " yn
+    [[ "$yn" =~ ^[Yy]$ ]] || exit 1
 fi
 
-case "$PKG_MGR" in
-    apt)
-        # Caddy is not in Debian's default repos — add the official repo.
-        if ! command -v caddy >/dev/null 2>&1; then
-            apt-get install -y debian-keyring debian-archive-keyring apt-transport-https curl gnupg
-            curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' \
-                | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-            curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' \
-                | tee /etc/apt/sources.list.d/caddy-stable.list
-            apt-get update
-        fi
-        apt-get install -y caddy python3.12 python3.12-venv python3-pip rsync nodejs npm
-        ;;
-    dnf)
-        echo "INFO: dnf detected. Caddy is not in RHEL/Fedora defaults — install manually first." >&2
-        dnf install -y python3.12 python3.12-venv python3.12-pip rsync nodejs npm
-        ;;
-esac
+# Port preflight: 8001 must be free.
+if ss -ltnp 2>/dev/null | grep -q ":$BACKEND_PORT "; then
+    echo "FATAL: 127.0.0.1:$BACKEND_PORT is already in use. Pick another port" >&2
+    echo "       and update deploy/tender-watch-backend.service + the Apache vhost." >&2
+    exit 1
+fi
+echo "  OK: 127.0.0.1:$BACKEND_PORT is free"
 
-# --- 3. System user ----------------------------------------------------------
-echo "[3/12] Creating system user ..."
+# --- 2. Packages ------------------------------------------------------------
+echo "[2/13] Installing OS packages ..."
+apt-get update -qq
+# Python 3.12 may need the deadsnakes PPA on older Ubuntu. Try stock first.
+if ! apt-get install -yqq python3.12 python3.12-venv rsync nodejs npm certbot python3-certbot-apache >/dev/null 2>&1; then
+    echo "  python3.12 not in stock repos — adding deadsnakes PPA ..."
+    apt-get install -yqq software-properties-common gnupg
+    add-apt-repository -y ppa:deadsnakes/ppa
+    apt-get update -qq
+    apt-get install -yqq python3.12 python3.12-venv rsync nodejs npm certbot python3-certbot-apache
+fi
+
+# --- 3. Apache modules -----------------------------------------------------
+echo "[3/13] Enabling Apache modules ..."
+a2enmod proxy proxy_http rewrite headers ssl >/dev/null
+
+# --- 4. System user --------------------------------------------------------
+echo "[4/13] Creating system user ..."
 if ! id tender-watch >/dev/null 2>&1; then
     useradd --system --shell /usr/sbin/nologin --home-dir /opt/tender-watch tender-watch
 fi
 
-# --- 4. Directories ----------------------------------------------------------
-echo "[4/12] Creating directories ..."
-mkdir -p /opt/tender-watch /etc/tender-watch /var/www/tender-watch /var/log/caddy
+# --- 5. Directories --------------------------------------------------------
+echo "[5/13] Creating directories ..."
+mkdir -p /opt/tender-watch /etc/tender-watch "$DOCROOT" /var/log/apache2
 chown -R tender-watch:tender-watch /opt/tender-watch /etc/tender-watch
-# /var/www/tender-watch must be readable by the Caddy user (www-data on Debian).
-# (Final chown happens in step 8 after the SPA dist is copied.)
 
-# --- 5. Backend venv + deps --------------------------------------------------
-echo "[5/12] Setting up backend venv ..."
+# --- 6. Backend venv + deps ------------------------------------------------
+echo "[6/13] Setting up backend venv ..."
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 if [[ ! -d /opt/tender-watch/backend/.venv ]]; then
     cp -r "$REPO_ROOT/backend" /opt/tender-watch/
@@ -105,8 +120,8 @@ if [[ ! -d /opt/tender-watch/backend/.venv ]]; then
     sudo --shell /bin/sh -u tender-watch /opt/tender-watch/backend/.venv/bin/pip install -e "/opt/tender-watch/backend[prod]"
 fi
 
-# --- 6. Seed config.json -----------------------------------------------------
-echo "[6/12] Seeding config.json ..."
+# --- 7. Seed config.json --------------------------------------------------
+echo "[7/13] Seeding config.json ..."
 if [[ ! -f /etc/tender-watch/config.json ]]; then
     sudo --shell /bin/sh -u tender-watch /opt/tender-watch/backend/.venv/bin/python -c \
         "from app.models import Config; print(Config().model_dump_json(indent=2))" \
@@ -115,10 +130,10 @@ if [[ ! -f /etc/tender-watch/config.json ]]; then
     chmod 0640 /etc/tender-watch/config.json
 fi
 
-# --- 7. Write backend.env ----------------------------------------------------
-echo "[7/12] Writing backend.env ..."
+# --- 8. Write backend.env --------------------------------------------------
+echo "[8/13] Writing backend.env ..."
 if [[ ! -f /etc/tender-watch/backend.env ]]; then
-    cat > /etc/tender-watch/backend.env <<'EOF'
+    cat > /etc/tender-watch/backend.env <<EOF
 TW_API_BASE=https://ocds-api.etenders.gov.za
 TW_CONFIG_PATH=/etc/tender-watch/config.json
 TW_CACHE_TTL_SECONDS=60
@@ -129,8 +144,8 @@ EOF
     chmod 0640 /etc/tender-watch/backend.env
 fi
 
-# --- 8. Build SPA ------------------------------------------------------------
-echo "[8/12] Building SPA ..."
+# --- 9. Build SPA ----------------------------------------------------------
+echo "[9/13] Building SPA ..."
 if [[ ! -d /opt/tender-watch/frontend ]]; then
     cp -r "$REPO_ROOT/frontend" /opt/tender-watch/
     chown -R tender-watch:tender-watch /opt/tender-watch/frontend
@@ -140,63 +155,60 @@ sudo --shell /bin/sh -u tender-watch bash -c '
     npm ci
     npm run build
 '
-rm -rf /var/www/tender-watch/*
-cp -r /opt/tender-watch/frontend/dist/. /var/www/tender-watch/
-chown -R www-data:www-data /var/www/tender-watch
+rm -rf "$DOCROOT"/*
+cp -r /opt/tender-watch/frontend/dist/. "$DOCROOT/"
+# Apache runs as www-data on Debian; docroot must be readable + listable.
+chown -R www-data:www-data "$DOCROOT"
 
-# --- 9. Caddyfile ------------------------------------------------------------
-echo "[9/12] Writing Caddyfile ..."
-# Caddyfile gate: if a Caddyfile mentioning $DOMAIN is already deployed,
-# we don't overwrite it — operator edits to /etc/caddy/Caddyfile are
-# preserved. For repo changes to deploy/Caddyfile, edit the deployed
-# file directly or 'sudo systemctl reload caddy' after manual edit.
-if ! grep -q "$DOMAIN" /etc/caddy/Caddyfile 2>/dev/null; then
-    # Back up any existing Caddyfile.
-    [[ -f /etc/caddy/Caddyfile ]] && cp /etc/caddy/Caddyfile /etc/caddy/Caddyfile.bak.$(date +%s)
-    cp "$REPO_ROOT/deploy/Caddyfile" /etc/caddy/Caddyfile
-fi
-caddy validate --config /etc/caddy/Caddyfile
+# --- 10. Apache vhost -----------------------------------------------------
+echo "[10/13] Installing Apache vhost ..."
+cp "$APACHE_VHOST_SRC" "$APACHE_VHOST_DST"
+a2ensite watch.titan-ai.co.za.conf
+apache2ctl configtest
+systemctl reload apache2
 
-# --- 10. systemd unit + enable ----------------------------------------------
-echo "[10/12] Installing systemd unit ..."
+# --- 11. systemd unit + enable --------------------------------------------
+echo "[11/13] Installing systemd unit ..."
 cp "$REPO_ROOT/deploy/tender-watch-backend.service" /etc/systemd/system/
 systemctl daemon-reload
-systemctl enable --now caddy
 systemctl enable --now tender-watch-backend
 
-# --- 11. Wait for ACME -------------------------------------------------------
-echo "[11/12] Waiting for Let's Encrypt cert ..."
-SUCCESS=0
-for _ in $(seq 1 60); do
-    if systemctl is-active --quiet caddy \
-            && journalctl -u caddy --since "1 min ago" --no-pager 2>/dev/null \
-                | grep -qiE "certificate obtained successfully|obtained certificate"; then
-        SUCCESS=1
-        break
-    fi
-    sleep 2
-done
-if [[ "$SUCCESS" -ne 1 ]]; then
-    echo "WARNING: Caddy did not report a successful cert issue within 120s." >&2
-    echo "  Check: journalctl -u caddy -n 50" >&2
-    echo "  Common cause: the A record is correct from your DNS but the box is firewalled on :80." >&2
-fi
+# --- 12. TLS via certbot ---------------------------------------------------
+echo "[12/13] Issuing TLS cert (certbot --apache) ..."
+# Idempotent: certbot skips if a valid cert already exists for the domain.
+certbot --apache --non-interactive --agree-tos --register-unsafely-without-email \
+    -d "$DOMAIN" --redirect || {
+    echo "WARNING: certbot did not complete. Check 'certbot certificates' and" >&2
+    echo "         'journalctl -u certbot'. Common cause: :80 blocked or DNS not propagated." >&2
+    echo "         Re-run this script (or just: sudo certbot --apache -d $DOMAIN)." >&2
+}
 
-# --- 12. Smoke test ----------------------------------------------------------
-echo "[12/12] Smoke test ..."
-if curl -fsS --max-time 10 "https://$DOMAIN/api/health" >/dev/null 2>&1; then
+# --- 13. Smoke test --------------------------------------------------------
+echo "[13/13] Smoke test ..."
+sleep 2
+if curl -fsS --max-time 15 "https://$DOMAIN/api/health" >/dev/null 2>&1; then
     echo "  OK: https://$DOMAIN/api/health is reachable."
 else
-    echo "WARNING: smoke test failed. Check 'journalctl -u caddy' and 'journalctl -u tender-watch-backend'." >&2
+    echo "WARNING: smoke test failed. Diagnose with:" >&2
+    echo "  sudo journalctl -u tender-watch-backend -n 50" >&2
+    echo "  sudo journalctl -u apache2 -n 50" >&2
+    echo "  sudo apache2ctl configtest" >&2
+    echo "  curl -v http://127.0.0.1:$BACKEND_PORT/api/health   # backend direct" >&2
 fi
 
 echo ""
 echo "=== Install complete ==="
 echo ""
+echo "URL: https://$DOMAIN"
+echo ""
 echo "Useful commands:"
-echo "  View backend logs:    sudo journalctl -u tender-watch-backend -f"
-echo "  View Caddy logs:      sudo journalctl -u caddy -f"
-echo "  Edit config JSON:     sudo \$EDITOR /etc/tender-watch/config.json"
-echo "  Restart backend:      sudo systemctl restart tender-watch-backend"
-echo "  Reload Caddy config:  sudo systemctl reload caddy"
+echo "  Backend logs:        sudo journalctl -u tender-watch-backend -f"
+echo "  Apache logs:        sudo tail -f /var/log/apache2/watch_titan-ai_*.log"
+echo "  Edit config JSON:    sudo \$EDITOR /etc/tender-watch/config.json"
+echo "  Restart backend:     sudo systemctl restart tender-watch-backend"
+echo "  Reload Apache:       sudo systemctl reload apache2"
+echo "  Renew certs:         sudo certbot renew --apache"
+echo ""
+echo "Update the site from your laptop:"
+echo "  bash deploy/deploy.sh   # see deploy.sh for SSH-user details"
 echo ""

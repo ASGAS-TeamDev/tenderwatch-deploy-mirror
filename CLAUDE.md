@@ -6,12 +6,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Tender Watch is a personal, on-demand browser tool that monitors the South African eTenders OCDS Public API and surfaces IT / professional-services opportunities matching a user-defined keyword + buyer-allowlist filter. There is no scheduled job, no email digest, no database, and no auth. Every page load fetches fresh from `data.etenders.gov.za`. The only persistent state is a small user-editable JSON config on the backend's filesystem.
 
+Single self-hosted origin: `https://watch.titan-ai.co.za`, hosted on the shared xneelo Apache VPS at `156.38.222.220` (same box as `app/api/n8n.titan-ai.co.za`). Apache terminates TLS (Let's Encrypt via `certbot --apache`), serves the Vite `dist/`, and reverse-proxies `/api/*` to uvicorn on `127.0.0.1:8001`; `systemd` supervises uvicorn. The subdomain is the only protection — there is no application-layer auth.
+
 ## Repository layout
 
 ```
 backend/   Python 3.12+ / FastAPI / Pydantic v2 / httpx (eTenders client + filter pipeline)
 frontend/  Vite + React 19 + TypeScript + Tailwind v4 (SPA, three views)
-deploy/    render.yaml (backend) + vercel.json (frontend) + deploy-frontend.ps1 (one-shot Vercel deploy)
+deploy/    Apache vhost (apache/), systemd unit, install.sh (first-time), deploy.sh (updates)
 docs/      open-items.md, design spec + implementation plan under docs/superpowers/
 ```
 
@@ -25,6 +27,9 @@ python -m venv .venv
 # Windows:
 .venv\Scripts\python -m pip install -e ".[dev,prod]"
 .venv\Scripts\python -m uvicorn app.main:app --port 8000
+# macOS / Linux:
+.venv/bin/pip install -e ".[dev,prod]"
+.venv/bin/python -m uvicorn app.main:app --port 8000
 ```
 
 ### Frontend (dev)
@@ -38,7 +43,7 @@ npm run dev    # http://localhost:5173 — Vite proxies /api/* → http://127.0.
 ### Tests
 
 ```bash
-# Backend — 24 tests, pytest + respx + pytest-asyncio (asyncio_mode = "auto")
+# Backend — 25 tests, pytest + respx + pytest-asyncio (asyncio_mode = "auto")
 cd backend
 .venv\Scripts\python -m pytest -v
 .venv\Scripts\python -m pytest tests/test_filter.py -v          # one file
@@ -72,13 +77,24 @@ npm run build       # → frontend/dist/
 
 ### Deploy
 
-- Backend: `render.yaml` (Render Blueprint; `rootDir: backend`, health check at `/api/health`).
-- Frontend: `vercel.json` lives in `frontend/` (Vite framework, SPA rewrites). One-shot script: `deploy\deploy-frontend.ps1` (installs Vercel CLI, handles login, sets `VITE_API_BASE`, runs `vercel --prod`).
-- After a Vercel first deploy, copy the URL into the Render service's `TW_ALLOWED_ORIGINS` env var (Render auto-redeploys). First Render request cold-starts ~60s.
+Single self-hosted origin. See `deploy/README.md` for the full runbook.
+
+- **First-time setup** (run once on the host with `sudo`):
+  ```bash
+  ssh user@<host-ip>
+  cd <repo-root>
+  sudo bash deploy/install.sh
+  ```
+- **Updates** (run from the laptop):
+  ```bash
+  bash deploy/deploy.sh                # uses $TW_DEPLOY_HOST or the A record
+  TW_DEPLOY_HOST=tender-watch@1.2.3.4 bash deploy/deploy.sh
+  ```
+- Install script is idempotent. A record for `watch.titan-ai.co.za` must already point at `156.38.222.220`.
 
 ## Architecture — backend
 
-`backend/app/main.py` — FastAPI app. Mounts CORS (allowlist via `TW_ALLOWED_ORIGINS`, methods `GET/PUT/OPTIONS` only), wires three routers.
+`backend/app/main.py` — FastAPI app. Mounts CORS (allowlist via `TW_ALLOWED_ORIGINS`, methods `GET/PUT/OPTIONS` only), wires three routers. In the self-hosted prod deployment `TW_ALLOWED_ORIGINS` is empty (same-origin behind Apache), so CORS is effectively a no-op there.
 
 Three routes, all under `/api/`:
 
@@ -111,20 +127,20 @@ Three views: `MatchList` (cards with flag pills + UpstreamBanner when `health.et
 
 Lib: `lib/format.ts` (`formatZAR`, "R 12,500,000" en-ZA style) and `lib/relativeTime.ts`. All API strings are rendered as text — XSS-safe by construction.
 
-`vite.config.ts` proxies `/api → http://127.0.0.1:8000` for dev. The Vite/Vitest config is unified (single `vite.config.ts`, `test.environment = "happy-dom"`).
+`vite.config.ts` proxies `/api → http://127.0.0.1:8000` for dev. In prod, Apache reverse-proxies `/api/*` to `127.0.0.1:8001`. The Vite/Vitest config is unified (single `vite.config.ts`, `test.environment = "happy-dom"`).
 
 ## Environment variables
 
 | Var | Default | Purpose |
 | --- | --- | --- |
-| `TW_API_BASE` | `https://ocds-api.etenders.gov.za` | eTenders OCDS base URL |
-| `TW_CONFIG_PATH` | `./config/tender-watch.json` | User-editable filter/threshold JSON |
+| `TW_API_BASE` | `https://ocds-api.etenders.gov.za` | eTenders OCDS base URL (was `data.etenders.gov.za`; see `services/etenders.py` docstring) |
+| `TW_CONFIG_PATH` | `./config/tender-watch.json` | User-editable filter/threshold JSON (prod: `/etc/tender-watch/config.json`) |
 | `TW_CACHE_TTL_SECONDS` | `60` | In-memory response cache TTL |
-| `TW_ALLOWED_ORIGINS` | `http://localhost:5173` | Comma-separated CORS allowlist (prod: Vercel + Render URLs) |
+| `TW_ALLOWED_ORIGINS` | (empty in prod / `http://localhost:5173` in dev) | Comma-separated CORS allowlist. In the self-hosted prod deployment, leave empty for same-origin |
 | `TW_LOG_LEVEL` | `INFO` | Python logging level |
-| `VITE_API_BASE` | (empty) | Frontend build-time API base; leave empty in dev, set to Render URL in prod |
+| `VITE_API_BASE` | (empty) | Frontend build-time API base; leave empty in dev (proxy), empty in prod (same-origin under Apache) |
 
-Backend `.env.example` is the authoritative list of defaults. The user-editable config (keywords, buyer allowlist, lookback window, high-value threshold, etc.) is the JSON at `TW_CONFIG_PATH`, edited via the in-app **Config** tab or raw JSON.
+Backend `.env.example` is the authoritative list of defaults. The user-editable config (keywords, buyer allowlist, lookback window, high-value threshold, etc.) is the JSON at `TW_CONFIG_PATH`, edited via the in-app **Config** tab or raw JSON. In dev you can edit it freely; in prod the install script seeds `/etc/tender-watch/config.json` and the in-app Config tab PUTs back to it (no restart needed — read fresh on every `/api/matches`).
 
 ## Conventions
 
@@ -132,11 +148,12 @@ Backend `.env.example` is the authoritative list of defaults. The user-editable 
 - Backend uses `from __future__ import annotations` in every module; type hints throughout.
 - TypeScript strict mode, React 19, no class components.
 - Tailwind v4 with design tokens lifted from a Stitch Tonal Spot / Inter / 8 dp theme (`frontend/src/styles.css` `@theme` block). No component library.
-- Single-instance assumption: in-process TTL cache is acceptable because the spec deploys one Render instance (move to Redis only on horizontal scale-out — see `docs/open-items.md`).
+- Single-instance assumption: in-process TTL cache is acceptable because the spec deploys one backend process (move to Redis only on horizontal scale-out — see `docs/open-items.md`).
 - All release strings are rendered as text in the frontend — never as HTML — so hostile upstream titles cannot inject markup.
 
 ## Spec & plan references
 
-- Design: `docs/superpowers/specs/2026-06-17-tender-watch-app-design.md`
-- Implementation plan: `docs/superpowers/plans/2026-06-17-tender-watch-app.md`
+- Design (current): `docs/superpowers/specs/2026-06-24-drop-vercel-render-design.md` (self-hosting choice)
+- Design (v0.1.0 history): `docs/superpowers/specs/2026-06-17-tender-watch-app-design.md`
+- Implementation plan: `docs/superpowers/plans/2026-06-17-tender-watch-app.md` and `docs/superpowers/plans/2026-06-24-drop-vercel-render.md`
 - Resolved open items: `docs/open-items.md` (everything tracked in scope/plan/spec §9, with file:line citations)
