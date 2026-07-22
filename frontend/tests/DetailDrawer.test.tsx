@@ -15,7 +15,7 @@ const match: Match = {
   days_to_close: 28,
   province: "Gauteng",
   category: "IT services",
-  link: "https://etenders.gov.za/release/ocds-1",
+  link: "https://www.etenders.gov.za/home/tenderdetails/1",
   flags: ["high-value", "closing-soon"],
   matched_on: { keywords: ["cloud"], buyers: ["sita"] },
 };

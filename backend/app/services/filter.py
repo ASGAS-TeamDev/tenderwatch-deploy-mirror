@@ -69,7 +69,13 @@ def apply_rules(release: dict[str, Any], config: Config, *, now: datetime) -> Fi
     closing_iso = closing_period.get("endDate") or ""
     province = tender.get("province")
     category = tender.get("category")
-    link = f"https://etenders.gov.za/release/{release.get('ocid', '')}"
+    # eTenders moved from etenders.gov.za (dead, no DNS A record) to
+    # www.etenders.gov.za, and the release page URL changed from
+    # /release/<ocid> (404 on the new host) to /home/tenderdetails/<tender.id>
+    # (confirmed HTTP 200 on 2026-07-22). The numeric tender.id (e.g. 162277)
+    # is the correct key, not the ocid (e.g. ocds-9t57fa-162277).
+    tender_id = tender.get("id") or ""
+    link = f"https://www.etenders.gov.za/home/tenderdetails/{tender_id}"
     items = tender.get("items") or []
 
     result = FilterResult(
