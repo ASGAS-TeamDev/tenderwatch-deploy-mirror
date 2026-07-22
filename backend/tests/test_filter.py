@@ -33,6 +33,8 @@ def test_no_keyword_no_buyer_is_dropped(default_config: Config) -> None:
     r["tender"]["procuringEntity"]["name"] = "Acme Holdings"
     r["tender"]["title"] = "Catering services for the office"
     r["tender"]["description"] = "Catering services for the office canteen"
+    r["tender"]["category"] = "Catering"
+    r["tender"]["procurementMethodDetails"] = "Request for Quotation"
     r["tender"]["items"] = [{"classification": {"description": "Food"}}]
     result = apply_rules(
         r, default_config, now=datetime(2026, 6, 17, tzinfo=timezone.utc),

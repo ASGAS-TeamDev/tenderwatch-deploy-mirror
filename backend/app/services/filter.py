@@ -177,13 +177,24 @@ def apply_rules(release: dict[str, Any], config: Config, *, now: datetime) -> Fi
 
     # Soft-keep rules
     title_lower = title.lower()
-    description_lower = (tender.get("description") or "").lower()
+    description_lower = description.lower()
     item_text = " ".join(
         (item.get("classification") or {}).get("description", "") for item in items
     ).lower()
-    # eTenders' titles are often procurement IDs (e.g. "SCMU3-P26/27-0103-HO")
-    # so we also search the description. This is what the user actually reads.
-    searchable = " ".join([title_lower, description_lower, item_text])
+    # Broaden the searchable text to include all fields the user would
+    # expect keywords to match against: title, description, items, category,
+    # procurement method, delivery location, special conditions, and
+    # document titles. eTenders' titles are often procurement IDs so the
+    # description + category are where the real scope-of-work text lives.
+    doc_text = " ".join(d.get("title", "") for d in documents).lower()
+    searchable = " ".join([
+        title_lower, description_lower, item_text,
+        (category or "").lower(),
+        (procurement_method or "").lower(),
+        (delivery_location or "").lower(),
+        (special_conditions or "").lower(),
+        doc_text,
+    ])
     matched_keywords = [
         kw for kw in config.keywords
         if kw.lower() in searchable

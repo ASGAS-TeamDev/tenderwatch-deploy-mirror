@@ -194,29 +194,7 @@ export function DetailDrawer({
           </Section>
         )}
 
-        {/* eTenders link */}
-        <Section title="eTenders">
-          <a
-            className="text-primary underline"
-            href={match.link}
-            target="_blank"
-            rel="noreferrer"
-          >
-            Open on eTenders →
-          </a>
-        </Section>
       </div>
-
-      <footer className="border-t border-outline-variant p-4">
-        <a
-          href={match.link}
-          target="_blank"
-          rel="noreferrer"
-          className="block w-full rounded-card bg-primary py-2 text-center text-sm font-bold text-on-primary"
-        >
-          View on eTenders →
-        </a>
-      </footer>
     </aside>
   );
 }

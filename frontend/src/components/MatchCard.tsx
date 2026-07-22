@@ -26,16 +26,7 @@ export function MatchCard({
         {match.buyer} · {match.province ?? "—"} · Category: {match.category ?? "—"}
       </p>
       <p className="mt-1 text-xs text-on-surface-variant">
-        Closes {match.closing_date} ({relativeClosingLabel(match.closing_date)}) ·{" "}
-        <a
-          href={match.link}
-          target="_blank"
-          rel="noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          className="text-primary underline"
-        >
-          View on eTenders →
-        </a>
+        Closes {match.closing_date} ({relativeClosingLabel(match.closing_date)})
       </p>
       <p className="mt-2 text-[11px] text-on-surface-variant">
         Matched on: {match.matched_on.keywords.concat(match.matched_on.buyers).join(", ")}

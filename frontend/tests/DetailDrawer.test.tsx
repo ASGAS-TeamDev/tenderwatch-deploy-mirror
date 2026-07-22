@@ -36,7 +36,7 @@ describe("DetailDrawer", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("renders the key sections and the View on eTenders link", () => {
+  it("renders the key sections and document download link", () => {
     render(<DetailDrawer match={match} onClose={() => {}} />);
     expect(screen.getByText(/^description$/i)).toBeInTheDocument();
     expect(screen.getByText(/^buyer$/i)).toBeInTheDocument();
@@ -45,8 +45,8 @@ describe("DetailDrawer", () => {
     expect(screen.getByText(/^procurement details$/i)).toBeInTheDocument();
     expect(screen.getByText(/^contact person$/i)).toBeInTheDocument();
     expect(screen.getByText(/^documents \(1\)$/i)).toBeInTheDocument();
-    const link = screen.getByRole("link", { name: /view on etenders/i });
-    expect(link).toHaveAttribute("href", match.link);
+    const docLink = screen.getByRole("link", { name: /bid invitation/i });
+    expect(docLink).toHaveAttribute("href", "https://www.etenders.gov.za/home/Download?blobName=test1.doc");
   });
 
   it("calls onClose when the close button is clicked", async () => {
