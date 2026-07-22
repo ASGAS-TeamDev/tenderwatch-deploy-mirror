@@ -155,15 +155,15 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 if [[ ! -d /opt/tender-watch/backend/.venv ]]; then
     cp -r "$REPO_ROOT/backend" /opt/tender-watch/
     chown -R tender-watch:tender-watch /opt/tender-watch/backend
-    sudo --shell /bin/sh -u tender-watch python3.12 -m venv /opt/tender-watch/backend/.venv
-    sudo --shell /bin/sh -u tender-watch /opt/tender-watch/backend/.venv/bin/pip install --upgrade pip
-    sudo --shell /bin/sh -u tender-watch /opt/tender-watch/backend/.venv/bin/pip install -e "/opt/tender-watch/backend[prod]"
+    sudo -u tender-watch python3.12 -m venv /opt/tender-watch/backend/.venv
+    sudo -u tender-watch /opt/tender-watch/backend/.venv/bin/pip install --upgrade pip
+    sudo -u tender-watch /opt/tender-watch/backend/.venv/bin/pip install -e "/opt/tender-watch/backend[prod]"
 fi
 
 # --- 6. Seed config.json --------------------------------------------------
 echo "[6/12] Seeding config.json ..."
 if [[ ! -f /etc/tender-watch/config.json ]]; then
-    sudo --shell /bin/sh -u tender-watch /opt/tender-watch/backend/.venv/bin/python -c \
+    sudo -u tender-watch /opt/tender-watch/backend/.venv/bin/python -c \
         "from app.models import Config; print(Config().model_dump_json(indent=2))" \
         > /etc/tender-watch/config.json
     chown root:tender-watch /etc/tender-watch/config.json
@@ -190,7 +190,7 @@ if [[ ! -d /opt/tender-watch/frontend ]]; then
     cp -r "$REPO_ROOT/frontend" /opt/tender-watch/
     chown -R tender-watch:tender-watch /opt/tender-watch/frontend
 fi
-sudo --shell /bin/sh -u tender-watch bash -c '
+sudo -u tender-watch bash -c '
     cd /opt/tender-watch/frontend
     npm ci
     npm run build
