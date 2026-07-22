@@ -2,8 +2,8 @@
 # Tender Watch — laptop → host deploy.
 #
 # Builds the SPA, rsyncs dist/ and backend/ to 156.38.222.220, then
-# restarts the backend. Apache picks up the new dist/ on the next
-# request — no Apache reload needed.
+# restarts the backend. nginx picks up the new dist/ on the next
+# request — no nginx reload needed.
 #
 # Usage:
 #   bash deploy/deploy.sh                       # default SSH target (see below)
@@ -96,9 +96,9 @@ rsync -az --delete \
     --exclude .pytest_cache --exclude .ruff_cache \
     "$REPO_ROOT/backend/" "${DEPLOY_TARGET}:/opt/tender-watch/backend/"
 
-# Ensure the docroot stays Apache-owned after rsync (rsync preserves
-# the laptop's uid, which Apache can't read).
-$SSH_CMD "$DEPLOY_TARGET" 'sudo chown -R www-data:www-data /var/www/watch.titan-ai.co.za'
+# Ensure the docroot stays nginx-owned after rsync (rsync preserves
+# the laptop's uid, which nginx can't read).
+$SSH_CMD "$DEPLOY_TARGET" 'sudo chown -R $(ps -o user= -C nginx | head -1):$(ps -o user= -C nginx | head -1) /var/www/watch.titan-ai.co.za'
 
 # --- 3. Restart backend --------------------------------------------------
 echo "[3/3] Restarting backend ..."

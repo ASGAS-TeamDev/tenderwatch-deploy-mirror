@@ -8,7 +8,7 @@ User=tender-watch
 Group=tender-watch
 WorkingDirectory=/opt/tender-watch/backend
 EnvironmentFile=/etc/tender-watch/backend.env
-# Loopback-only; Apache reverse-proxies /api/* here. Port 8001 chosen to
+# Loopback-only; nginx reverse-proxies /api/* here. Port 8001 chosen to
 # avoid collision with the TITAN Node API on 127.0.0.1:3000.
 ExecStart=/opt/tender-watch/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8001
 Restart=on-failure
