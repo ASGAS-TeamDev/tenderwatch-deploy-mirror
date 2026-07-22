@@ -6,6 +6,7 @@ import { MatchList } from "./components/MatchList";
 import { DetailDrawer } from "./components/DetailDrawer";
 import { ConfigForm } from "./components/ConfigForm";
 import { Toast } from "./components/Toast";
+import { LoadingModal } from "./components/LoadingModal";
 import {
   getHealth, getMatches, getConfig,
   type Config, type HealthResponse, type Match, type MatchesResponse,
@@ -22,14 +23,18 @@ export default function App() {
   const [selected, setSelected] = useState<Match | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [bust, setBust] = useState<number>(Date.now());
+  const [loading, setLoading] = useState(false);
 
   const loadMatches = useCallback(async (bustOverride?: number) => {
     setError(null);
+    setLoading(true);
     try {
       const r = await getMatches({ window: config?.lookback_days ?? 7, includeClosed: config?.include_closed ?? true, bust: String(bustOverride ?? bust) });
       setData(r);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load matches");
+    } finally {
+      setLoading(false);
     }
   }, [bust, config]);
 
@@ -112,6 +117,7 @@ export default function App() {
 
       <DetailDrawer match={selected} onClose={() => setSelected(null)} />
       {toast && <Toast message={toast} onClose={() => setToast(null)} />}
+      <LoadingModal visible={loading} />
     </div>
   );
 }

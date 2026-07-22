@@ -180,13 +180,15 @@ export function DetailDrawer({
                     className="flex items-center gap-2 text-primary underline"
                     href={doc.url}
                     target="_blank"
-                    rel="noreferrer"
+                    rel="noopener noreferrer"
+                    title="Open in new tab"
                   >
                     <span className="text-on-surface-variant">📎</span>
                     {doc.title}
                     {doc.format && (
                       <span className="text-[11px] uppercase text-on-surface-variant">({doc.format})</span>
                     )}
+                    <span className="text-[10px] text-on-surface-variant/60" aria-hidden>↗</span>
                   </a>
                 </li>
               ))}
