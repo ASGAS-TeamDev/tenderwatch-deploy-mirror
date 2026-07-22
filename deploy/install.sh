@@ -85,15 +85,57 @@ echo "  OK: 127.0.0.1:$BACKEND_PORT is free"
 # --- 2. Packages ------------------------------------------------------------
 echo "[2/12] Installing OS packages ..."
 apt-get update -qq
-# python3-certbot-nginx is the certbot nginx plugin; required for --nginx flag.
-if ! apt-get install -yqq python3.12 python3.12-venv rsync nodejs npm \
-        certbot python3-certbot-nginx >/dev/null 2>&1; then
-    echo "  python3.12 not in stock repos — adding deadsnakes PPA ..."
-    apt-get install -yqq software-properties-common gnupg
-    add-apt-repository -y ppa:deadsnakes/ppa
-    apt-get update -qq
-    apt-get install -yqq python3.12 python3.12-venv rsync nodejs npm \
-        certbot python3-certbot-nginx
+
+# Python 3.12 — stock on Ubuntu 24.04, needs deadsnakes PPA on 22.04 (jammy).
+if ! command -v python3.12 >/dev/null 2>&1; then
+    if ! apt-get install -yqq python3.12 python3.12-venv >/dev/null 2>&1; then
+        echo "  python3.12 not in stock repos — adding deadsnakes PPA ..."
+        apt-get install -yqq software-properties-common gnupg
+        add-apt-repository -y ppa:deadsnakes/ppa
+        apt-get update -qq
+        apt-get install -yqq python3.12 python3.12-venv
+    fi
+fi
+
+# Install each remaining package individually with a presence guard.
+# Never bulk-install — a single held package (e.g. an existing pip/snap
+# certbot conflicting with the apt certbot) would abort the whole step.
+# Only install what's actually missing on this box.
+for pkg in rsync nodejs npm; do
+    if ! dpkg -s "$pkg" >/dev/null 2>&1 \
+            && ! command -v "$pkg" >/dev/null 2>&1; then
+        apt-get install -yqq "$pkg"
+    fi
+done
+
+# certbot: do NOT install via apt if a newer certbot is already present
+# (this box has certbot 5.7.0, likely from pip/snap — far newer than
+# jammy's apt package). Re-installing via apt would trigger held-package
+# conflicts. Only ensure the nginx plugin is available for whichever
+# certbot is installed.
+if ! command -v certbot >/dev/null 2>&1; then
+    apt-get install -yqq certbot python3-certbot-nginx
+else
+    # certbot exists — ensure its nginx plugin is installed.
+    # For snap certbot, the plugin ships in the snap; for pip certbot,
+    # install via pip into certbot's venv. For apt certbot, use apt.
+    if certbot plugins 2>/dev/null | grep -qi nginx; then
+        : # nginx plugin already available
+    elif dpkg -s python3-certbot-nginx >/dev/null 2>&1; then
+        : # apt plugin package installed
+    else
+        # Try apt first; if it conflicts (held packages), fall back to pip
+        # into the same Python that runs certbot.
+        if ! apt-get install -yqq python3-certbot-nginx >/dev/null 2>&1; then
+            CERTBOT_PY="$(readlink -f "$(command -v certbot)")"
+            CERTBOT_PY_DIR="$(dirname "${CERTBOT_PY}")"
+            echo "  apt python3-certbot-nginx unavailable — trying pip in $CERTBOT_PY_DIR ..."
+            # If certbot is a pip install in a venv, this puts the plugin next to it.
+            "${CERTBOT_PY_DIR}/pip" install certbot-nginx 2>/dev/null \
+                || pip3 install --user certbot-nginx 2>/dev/null \
+                || echo "  WARNING: could not install certbot-nginx plugin via apt or pip. certbot --nginx may fail at step 11." >&2
+        fi
+    fi
 fi
 
 # --- 3. System user --------------------------------------------------------
