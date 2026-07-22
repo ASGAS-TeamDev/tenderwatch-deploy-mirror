@@ -69,13 +69,25 @@ def apply_rules(release: dict[str, Any], config: Config, *, now: datetime) -> Fi
     closing_iso = closing_period.get("endDate") or ""
     province = tender.get("province")
     category = tender.get("category")
-    # eTenders moved from etenders.gov.za (dead, no DNS A record) to
-    # www.etenders.gov.za, and the release page URL changed from
-    # /release/<ocid> (404 on the new host) to /home/tenderdetails/<tender.id>
-    # (confirmed HTTP 200 on 2026-07-22). The numeric tender.id (e.g. 162277)
-    # is the correct key, not the ocid (e.g. ocds-9t57fa-162277).
-    tender_id = tender.get("id") or ""
-    link = f"https://www.etenders.gov.za/home/tenderdetails/{tender_id}"
+    # eTenders has no standalone HTML tender detail page — the old
+    # /release/<ocid> URL is dead (etenders.gov.za has no DNS A record;
+    # /release/<ocid> 404s on www.etenders.gov.za). The portal uses
+    # DataTables inline expansion via AJAX to /Home/tenderDetails?ID=<id>
+    # (JSON only, not a viewable page). The best deep-link is to the
+    # opportunities page pre-filtered by the tender title (which is the
+    # procurement ID, e.g. "ZNQUMGDO 02-26/27"), with the correct status
+    # tab. The eTenders JS reads ?filter=&search= from the URL and
+    # pre-filters the list (confirmed 2026-07-22).
+    _status_to_tab = {
+        "active": 1, "planning": 1, "planned": 1,
+        "awarded": 2, "complete": 2,
+        "cancelled": 3, "unsuccessful": 3, "withdrawn": 3,
+        "closed": 4,
+    }
+    _tab = _status_to_tab.get(status, 1)
+    from urllib.parse import quote
+    _search = quote(title)
+    link = f"https://www.etenders.gov.za/Home/opportunities?id={_tab}&filter={_search}&search={_search}"
     items = tender.get("items") or []
 
     result = FilterResult(
