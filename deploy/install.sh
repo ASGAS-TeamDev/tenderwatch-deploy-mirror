@@ -152,9 +152,12 @@ chown -R tender-watch:tender-watch /opt/tender-watch /etc/tender-watch
 # --- 5. Backend venv + deps ------------------------------------------------
 echo "[5/12] Setting up backend venv ..."
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# Always sync the backend source (preserve the .venv if it exists).
+rsync -az --delete \
+    --exclude .venv --exclude __pycache__ --exclude .pytest_cache --exclude .ruff_cache \
+    "$REPO_ROOT/backend/" /opt/tender-watch/backend/
+chown -R tender-watch:tender-watch /opt/tender-watch/backend
 if [[ ! -d /opt/tender-watch/backend/.venv ]]; then
-    cp -r "$REPO_ROOT/backend" /opt/tender-watch/
-    chown -R tender-watch:tender-watch /opt/tender-watch/backend
     sudo -u tender-watch python3.12 -m venv /opt/tender-watch/backend/.venv
     sudo -u tender-watch /opt/tender-watch/backend/.venv/bin/pip install --upgrade pip
     sudo -u tender-watch /opt/tender-watch/backend/.venv/bin/pip install -e "/opt/tender-watch/backend[prod]"
@@ -186,10 +189,11 @@ fi
 
 # --- 8. Build SPA ----------------------------------------------------------
 echo "[8/12] Building SPA ..."
-if [[ ! -d /opt/tender-watch/frontend ]]; then
-    cp -r "$REPO_ROOT/frontend" /opt/tender-watch/
-    chown -R tender-watch:tender-watch /opt/tender-watch/frontend
-fi
+# Always sync the frontend source (preserve node_modules + dist if they exist).
+rsync -az --delete \
+    --exclude node_modules --exclude dist \
+    "$REPO_ROOT/frontend/" /opt/tender-watch/frontend/
+chown -R tender-watch:tender-watch /opt/tender-watch/frontend
 sudo -u tender-watch bash -c '
     cd /opt/tender-watch/frontend
     npm ci
