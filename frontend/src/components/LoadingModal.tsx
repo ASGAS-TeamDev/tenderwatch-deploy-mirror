@@ -59,7 +59,7 @@ export function LoadingModal({ visible }: { visible: boolean }) {
             Querying the eTenders API{dots}
           </p>
           <p className="mt-2 text-[11px] text-on-dark-surface/40">
-            This can take 30–60 seconds while we paginate through
+            This can take 1–2 minutes while we paginate through
             <br />
             hundreds of government tender releases.
           </p>

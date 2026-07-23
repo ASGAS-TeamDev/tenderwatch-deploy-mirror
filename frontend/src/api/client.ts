@@ -95,7 +95,7 @@ export interface ConfigResponse {
   config_digest: string;
 }
 
-async function request<T>(path: string, init: RequestInit = {}, timeoutMs = 90_000): Promise<T> {
+async function request<T>(path: string, init: RequestInit = {}, timeoutMs = 120_000): Promise<T> {
   // Client-side timeout so a stuck backend doesn't pin the UI forever.
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
