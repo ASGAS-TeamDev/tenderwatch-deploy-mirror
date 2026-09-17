@@ -95,7 +95,21 @@ export interface ConfigResponse {
   config_digest: string;
 }
 
-async function request<T>(path: string, init: RequestInit = {}, timeoutMs = 120_000): Promise<T> {
+// Thrown for any non-2xx response. Carries the HTTP status and the parsed
+// body's `detail` (FastAPI's HTTPException shape) so callers that need more
+// than a message — e.g. a 409 config conflict — can inspect it.
+export class ApiError extends Error {
+  status: number;
+  detail: unknown;
+  constructor(message: string, status: number, detail: unknown) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.detail = detail;
+  }
+}
+
+async function request<T>(path: string, init: RequestInit = {}, timeoutMs = 180_000): Promise<T> {
   // Client-side timeout so a stuck backend doesn't pin the UI forever.
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -106,15 +120,15 @@ async function request<T>(path: string, init: RequestInit = {}, timeoutMs = 120_
       headers: { "Content-Type": "application/json", ...(init.headers ?? {}) },
     });
     if (!resp.ok) {
-      let detail: unknown = null;
+      let body: unknown = null;
       try {
-        detail = await resp.json();
+        body = await resp.json();
       } catch {
         // ignore
       }
       const message = (() => {
-        if (detail && typeof detail === "object" && "detail" in detail) {
-          const d = (detail as { detail: unknown }).detail;
+        if (body && typeof body === "object" && "detail" in body) {
+          const d = (body as { detail: unknown }).detail;
           if (typeof d === "string") return d;
           if (d && typeof d === "object" && "error" in d) {
             return (d as { error: string }).error;
@@ -122,7 +136,7 @@ async function request<T>(path: string, init: RequestInit = {}, timeoutMs = 120_
         }
         return `HTTP ${resp.status}`;
       })();
-      throw new Error(message);
+      throw new ApiError(message, resp.status, body);
     }
     return resp.json() as Promise<T>;
   } catch (err) {
@@ -154,6 +168,30 @@ export function getConfig(): Promise<ConfigResponse> {
   return request<ConfigResponse>("/api/config");
 }
 
-export function putConfig(config: Config): Promise<ConfigResponse> {
-  return request<ConfigResponse>("/api/config", { method: "PUT", body: JSON.stringify(config) });
+export function putConfig(config: Config, expectedDigest?: string): Promise<ConfigResponse> {
+  return request<ConfigResponse>("/api/config", {
+    method: "PUT",
+    body: JSON.stringify(config),
+    // Optimistic concurrency: if someone else saved since we loaded this
+    // digest, the backend returns 409 instead of silently overwriting them.
+    headers: expectedDigest ? { "If-Match": expectedDigest } : {},
+  });
+}
+
+// Shape of the 409 response body's `detail` field (see backend/app/routes/config.py).
+export interface ConfigConflictDetail {
+  error: "config_modified";
+  current_config: Config;
+  current_digest: string;
+}
+
+export function isConfigConflict(e: unknown): e is ApiError & { detail: { detail: ConfigConflictDetail } } {
+  return (
+    e instanceof ApiError &&
+    e.status === 409 &&
+    !!e.detail &&
+    typeof e.detail === "object" &&
+    "detail" in (e.detail as object) &&
+    (e.detail as { detail?: { error?: string } }).detail?.error === "config_modified"
+  );
 }

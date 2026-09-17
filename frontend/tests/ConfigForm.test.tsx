@@ -3,6 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ConfigForm } from "../src/components/ConfigForm";
 import * as api from "../src/api/client";
+import { ApiError } from "../src/api/client";
 import type { Config } from "../src/api/client";
 
 const baseConfig: Config = {
@@ -37,6 +38,29 @@ describe("ConfigForm", () => {
     render(<ConfigForm initial={baseConfig} onSaved={onSaved} />);
     await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
     await waitFor(() => expect(putSpy).toHaveBeenCalled());
+    expect(onSaved).toHaveBeenCalled();
+  });
+
+  it("shows a conflict banner instead of overwriting when the config changed elsewhere", async () => {
+    const theirConfig: Config = { ...baseConfig, keywords: ["theirs"] };
+    const putSpy = vi.spyOn(api, "putConfig")
+      .mockRejectedValueOnce(
+        new ApiError("config_modified", 409, {
+          detail: { error: "config_modified", current_config: theirConfig, current_digest: "new-digest" },
+        }),
+      )
+      .mockResolvedValueOnce({ config: theirConfig, config_digest: "new-digest" });
+    const onSaved = vi.fn();
+    render(<ConfigForm initial={baseConfig} initialDigest="old-digest" onSaved={onSaved} />);
+
+    await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    expect(await screen.findByText(/someone else saved changes/i)).toBeInTheDocument();
+    expect(onSaved).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("button", { name: /overwrite with my version anyway/i }));
+    await waitFor(() => expect(putSpy).toHaveBeenCalledTimes(2));
+    // Second call is a forced overwrite — no If-Match digest sent.
+    expect(putSpy).toHaveBeenLastCalledWith(baseConfig, undefined);
     expect(onSaved).toHaveBeenCalled();
   });
 });

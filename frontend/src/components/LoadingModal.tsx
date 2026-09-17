@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
  * Brand: Herge Dynamics — uses Michroma for the heading, Orbitron for the
  * status text, black-to-blue gradient background, bright blue spinner.
  */
-export function LoadingModal({ visible }: { visible: boolean }) {
+export function LoadingModal({ visible, retrying = false }: { visible: boolean; retrying?: boolean }) {
   const [dots, setDots] = useState("");
 
   // Animate the "..." dots for a live feel.
@@ -56,12 +56,22 @@ export function LoadingModal({ visible }: { visible: boolean }) {
             className="text-xs tracking-wide text-on-dark-surface/60"
             style={{ fontFamily: "Orbitron, sans-serif" }}
           >
-            Querying the eTenders API{dots}
+            {retrying ? "Still warming up" : "Querying the eTenders API"}{dots}
           </p>
           <p className="mt-2 text-[11px] text-on-dark-surface/40">
-            This can take 1–2 minutes while we paginate through
-            <br />
-            hundreds of government tender releases.
+            {retrying ? (
+              <>
+                The first fetch after a restart can take a couple of minutes —
+                <br />
+                hang tight, this will resolve on its own.
+              </>
+            ) : (
+              <>
+                This can take 1–2 minutes while we paginate through
+                <br />
+                hundreds of government tender releases.
+              </>
+            )}
           </p>
         </div>
       </div>

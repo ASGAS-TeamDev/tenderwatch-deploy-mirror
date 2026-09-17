@@ -18,24 +18,41 @@ export default function App() {
   const [view, setView] = useState<View>("list");
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [config, setConfig] = useState<Config | null>(null);
+  const [configDigest, setConfigDigest] = useState<string | null>(null);
   const [data, setData] = useState<MatchesResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Match | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [retrying, setRetrying] = useState(false);
 
-  const loadMatches = useCallback(async () => {
+  // A cold cache (first request after any backend restart) can genuinely
+  // take 1-2 minutes to fetch — the request itself already carries a 180s
+  // client timeout for that. If it still times out (slow upstream, or the
+  // request landed mid-warm and lost the race), the fetch keeps running on
+  // the server and finishes shortly after — so one automatic retry almost
+  // always picks up the now-warm cache instead of leaving the user staring
+  // at a dead-end error.
+  const loadMatches = useCallback(async (attempt = 1) => {
     setError(null);
     setLoading(true);
+    setRetrying(attempt > 1);
     try {
       // No bust — the backend warmer + SWR cache keeps data fresh.
       // Sending bust forces a blocking 80s+ cold fetch which times out.
       const r = await getMatches({ window: config?.lookback_days ?? 7, includeClosed: config?.include_closed ?? true });
       setData(r);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load matches");
-    } finally {
       setLoading(false);
+      setRetrying(false);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Failed to load matches";
+      if (message.includes("timed out") && attempt < 2) {
+        void loadMatches(attempt + 1);
+        return;
+      }
+      setError(message);
+      setLoading(false);
+      setRetrying(false);
     }
   }, [config]);
 
@@ -43,9 +60,15 @@ export default function App() {
     void getHealth().then(setHealth).catch(() => setHealth({ ok: false, etenders_reachable: false, config_path: "" }));
   }, []);
 
-  useEffect(() => {
-    void getConfig().then((r) => setConfig(r.config)).catch(() => setConfig(null));
+  const refreshConfig = useCallback(async () => {
+    const r = await getConfig();
+    setConfig(r.config);
+    setConfigDigest(r.config_digest);
   }, []);
+
+  useEffect(() => {
+    void refreshConfig().catch(() => setConfig(null));
+  }, [refreshConfig]);
 
   useEffect(() => {
     if (view === "list" && config) void loadMatches();
@@ -54,8 +77,11 @@ export default function App() {
   function handleConfigSaved() {
     setToast("Saved");
     setView("list");
-    // Reload from cache — the backend warmer picks up config changes
-    // on the next warm cycle (every 30s) without a blocking fetch.
+    // Re-fetch config so we hold its fresh digest (needed for the next
+    // save's If-Match check) — then reload from cache. The backend warmer
+    // picks up config changes on the next warm cycle (every 30s) without a
+    // blocking fetch.
+    void refreshConfig();
     void loadMatches();
   }
 
@@ -108,13 +134,13 @@ export default function App() {
         )}
 
         {view === "config" && config && (
-          <ConfigForm initial={config} onSaved={handleConfigSaved} />
+          <ConfigForm initial={config} initialDigest={configDigest} onSaved={handleConfigSaved} />
         )}
       </main>
 
       <DetailDrawer match={selected} onClose={() => setSelected(null)} />
       {toast && <Toast message={toast} onClose={() => setToast(null)} />}
-      <LoadingModal visible={loading} />
+      <LoadingModal visible={loading} retrying={retrying} />
     </div>
   );
 }

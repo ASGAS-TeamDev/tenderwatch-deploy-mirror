@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { Config } from "../api/client";
-import { putConfig } from "../api/client";
+import { putConfig, isConfigConflict } from "../api/client";
 
 const KEYWORD_DEFAULTS = [
   "software", "it services", "system integration",
@@ -12,12 +12,16 @@ const KEYWORD_DEFAULTS = [
 const BUYER_DEFAULTS = ["sita", "national treasury", "sars", "dcdt", "gcis"];
 
 export function ConfigForm({
-  initial, onSaved,
-}: { initial: Config; onSaved: () => void }) {
+  initial, initialDigest = null, onSaved,
+}: { initial: Config; initialDigest?: string | null; onSaved: () => void }) {
   const [draft, setDraft] = useState<Config>(initial);
+  const [digest, setDigest] = useState<string | null>(initialDigest);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  // Set when a save is rejected because someone else saved first — holds
+  // their config so the user can see what changed before deciding.
+  const [conflict, setConflict] = useState<Config | null>(null);
 
   const lookbackError = useMemo(() => {
     if (draft.lookback_days < 7 || draft.lookback_days > 90) {
@@ -33,19 +37,36 @@ export function ConfigForm({
     setSaved(false);
   }
 
-  async function handleSave() {
+  async function handleSave(force = false) {
     if (!canSave) return;
     setSaving(true);
     setError(null);
+    setConflict(null);
     try {
-      await putConfig(draft);
+      const r = await putConfig(draft, force ? undefined : (digest ?? undefined));
+      setDigest(r.config_digest);
       setSaved(true);
       onSaved();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Save failed");
+      if (isConfigConflict(e)) {
+        setConflict(e.detail.detail.current_config);
+      } else {
+        setError(e instanceof Error ? e.message : "Save failed");
+      }
     } finally {
       setSaving(false);
     }
+  }
+
+  function handleLoadTheirs() {
+    if (!conflict) return;
+    setDraft(conflict);
+    setConflict(null);
+  }
+
+  function handleOverwrite() {
+    setConflict(null);
+    void handleSave(true);
   }
 
   function handleResetDefaults() {
@@ -62,7 +83,7 @@ export function ConfigForm({
       className="mx-auto max-w-[640px] space-y-6"
       onSubmit={(e) => {
         e.preventDefault();
-        void handleSave();
+        void handleSave(false);
       }}
     >
       <Field
@@ -153,6 +174,31 @@ export function ConfigForm({
       {error && (
         <div className="rounded-card border border-error-container bg-error-container p-3 text-sm text-on-error-container">
           {error}
+        </div>
+      )}
+
+      {conflict && (
+        <div className="space-y-3 rounded-card border border-error-container bg-error-container p-3 text-sm text-on-error-container">
+          <p>
+            Someone else saved changes to this config while you were editing.
+            Your changes were <strong>not</strong> saved.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={handleLoadTheirs}
+              className="rounded-card bg-surface px-4 py-2 text-xs font-bold text-on-surface"
+            >
+              Load their version (discard my edits)
+            </button>
+            <button
+              type="button"
+              onClick={handleOverwrite}
+              className="rounded-card border border-on-error-container px-4 py-2 text-xs font-bold text-on-error-container"
+            >
+              Overwrite with my version anyway
+            </button>
+          </div>
         </div>
       )}
 
