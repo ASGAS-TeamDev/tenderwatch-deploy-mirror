@@ -30,5 +30,8 @@ coverage/
 *.swp
 .DS_Store
 
+# Claude Code local settings (secrets: API keys, per-machine env)
+.claude/settings.local.json
+
 # Stitch / planning artefacts (kept in the planning repo, not here)
 # (none — this is the build repo)
