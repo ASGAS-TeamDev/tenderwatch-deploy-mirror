@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+/* Design tokens — Herge Dynamics Brand Guidelines 2026.
+   Primary colors: Deep Blue (#0041B3), Bright Blue (#0086F5), Black (#000000)
+   Secondary colors: Metal Grey (#686E7E), White (#FFFFFF)
+   Typography: Michroma (headings), Orbitron (subheadings), Montserrat (body)
+   Shapes: Geometric, sharp edges, subtle radii
+   Gradient: Black-to-Blue for hero/header backgrounds */
+@theme {
+  /* --- Primary (Herge Dynamics blues) --- */
+  --color-primary: #0041B3;
+  --color-on-primary: #ffffff;
+  --color-primary-bright: #0086F5;
+  --color-primary-container: rgba(0, 65, 179, 0.08);
+  --color-on-primary-container: #003380;
+
+  /* --- Secondary (Metal Grey) --- */
+  --color-secondary: #686E7E;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #f1f2f5;
+  --color-on-secondary-container: #3d4150;
+
+  /* --- Tertiary (bright blue accent) --- */
+  --color-tertiary: #0086F5;
+  --color-on-tertiary: #ffffff;
+  --color-tertiary-container: rgba(0, 134, 245, 0.1);
+  --color-on-tertiary-container: #005bb0;
+
+  /* --- Functional colors (kept from v1 — UX conventions) --- */
+  --color-warning: #d97706;
+  --color-on-warning: #ffffff;
+  --color-warning-container: #fef3c7;
+  --color-on-warning-container: #78350f;
+
+  --color-error: #dc2626;
+  --color-on-error: #ffffff;
+  --color-error-container: #fee2e2;
+  --color-on-error-container: #7f1d1d;
+
+  /* --- Surfaces (dark chrome, light content) --- */
+  --color-surface: #ffffff;
+  --color-on-surface: #111827;
+  --color-surface-variant: #f9fafb;
+  --color-on-surface-variant: #686E7E;
+  --color-outline: #e5e7eb;
+  --color-outline-variant: #f3f4f6;
+
+  /* --- Dark surface (header, banners) --- */
+  --color-dark-surface: #000000;
+  --color-on-dark-surface: #ffffff;
+  --color-dark-surface-variant: #1a1a2e;
+
+  /* --- Brand gradient --- */
+  --color-gradient-start: #000000;
+  --color-gradient-end: #0041B3;
+
+  /* --- Typography (Herge Dynamics brand fonts) --- */
+  --font-heading: "Michroma", ui-sans-serif, system-ui, sans-serif;
+  --font-subheading: "Orbitron", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Montserrat", ui-sans-serif, system-ui, sans-serif;
+
+  /* --- Radii (geometric, sharp edges) --- */
+  --radius-card: 0.25rem;
+  --radius-pill: 9999px;
+}
