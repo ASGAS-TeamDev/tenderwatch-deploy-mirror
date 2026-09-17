@@ -1,6 +1,6 @@
 # Tender Watch
 
-A personal, on-demand browser tool that monitors the South African eTenders
+Herge Dynamics — a personal, on-demand browser tool that monitors the South African eTenders
 OCDS Public API and surfaces IT / professional-services opportunities matching
 a user-defined keyword + buyer-allowlist filter.
 
