@@ -14,6 +14,7 @@ const baseConfig: Config = {
   include_closed: true,
   keywords: ["software", "cloud"],
   buyer_allowlist: ["sita"],
+  favourited_ocids: [],
 };
 
 describe("ConfigForm", () => {
@@ -62,5 +63,30 @@ describe("ConfigForm", () => {
     // Second call is a forced overwrite — no If-Match digest sent.
     expect(putSpy).toHaveBeenLastCalledWith(baseConfig, undefined);
     expect(onSaved).toHaveBeenCalled();
+  });
+
+  it("toggling a keyword checkbox off removes it from the saved keywords", async () => {
+    const putSpy = vi.spyOn(api, "putConfig").mockResolvedValue({
+      config: baseConfig,
+      config_digest: "abc",
+    });
+    render(<ConfigForm initial={baseConfig} onSaved={() => {}} />);
+    await userEvent.click(screen.getByRole("checkbox", { name: /^cloud$/i }));
+    await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    await waitFor(() => expect(putSpy).toHaveBeenCalled());
+    expect(putSpy.mock.calls[0][0].keywords).toEqual(["software"]);
+  });
+
+  it("checking 'All' buyers sets match_all_buyers and disables the buyer checklist", async () => {
+    const putSpy = vi.spyOn(api, "putConfig").mockResolvedValue({
+      config: baseConfig,
+      config_digest: "abc",
+    });
+    render(<ConfigForm initial={baseConfig} onSaved={() => {}} />);
+    await userEvent.click(screen.getByRole("checkbox", { name: /^all \(ignore the buyer list/i }));
+    expect(screen.getByRole("checkbox", { name: /^sita$/i })).toBeDisabled();
+    await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    await waitFor(() => expect(putSpy).toHaveBeenCalled());
+    expect(putSpy.mock.calls[0][0].match_all_buyers).toBe(true);
   });
 });

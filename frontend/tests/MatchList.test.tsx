@@ -1,5 +1,6 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MatchList } from "../src/components/MatchList";
 import type { Match } from "../src/api/client";
 
@@ -27,6 +28,7 @@ const baseMatch: Match = {
   documents: [],
   published_date: "",
   tender_start_date: "",
+  heading: "",
 };
 
 describe("MatchList (T14)", () => {
@@ -63,5 +65,44 @@ describe("MatchList (T15)", () => {
       />,
     );
     expect(screen.getByText(/unreachable/i)).toBeInTheDocument();
+  });
+});
+
+describe("MatchList favourites", () => {
+  it("shows an unfilled star by default and a filled one when favourited", () => {
+    render(<MatchList matches={[baseMatch]} onSelect={() => {}} favouritedOcids={[]} onToggleFavourite={() => {}} />);
+    expect(screen.getByRole("button", { name: /add to favourites/i })).toBeInTheDocument();
+
+    render(<MatchList matches={[baseMatch]} onSelect={() => {}} favouritedOcids={["ocds-1"]} onToggleFavourite={() => {}} />);
+    expect(screen.getByRole("button", { name: /remove from favourites/i })).toBeInTheDocument();
+  });
+
+  it("toggles favourite without opening the detail drawer", async () => {
+    const onToggleFavourite = vi.fn();
+    const onSelect = vi.fn();
+    render(<MatchList matches={[baseMatch]} onSelect={onSelect} favouritedOcids={[]} onToggleFavourite={onToggleFavourite} />);
+    await userEvent.click(screen.getByRole("button", { name: /add to favourites/i }));
+    expect(onToggleFavourite).toHaveBeenCalledWith("ocds-1");
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it("does not render a star toggle when onToggleFavourite is omitted", () => {
+    render(<MatchList matches={[baseMatch]} onSelect={() => {}} />);
+    expect(screen.queryByRole("button", { name: /favourites/i })).not.toBeInTheDocument();
+  });
+});
+
+describe("MatchList empty-state overrides", () => {
+  it("uses custom empty-state copy when provided", () => {
+    render(
+      <MatchList
+        matches={[]}
+        onSelect={() => {}}
+        emptyHeadline="No favourites yet"
+        emptyBody="Star a tender from any list to pin it here."
+      />,
+    );
+    expect(screen.getByText("No favourites yet")).toBeInTheDocument();
+    expect(screen.getByText(/star a tender from any list/i)).toBeInTheDocument();
   });
 });

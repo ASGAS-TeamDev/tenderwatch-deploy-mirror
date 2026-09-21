@@ -12,16 +12,18 @@ def test_load_config_returns_defaults_when_missing(tmp_path: Path) -> None:
     cfg = load_config(tmp_path / "tender-watch.json")
     assert cfg.lookback_days == 7
     assert cfg.page_size == 100
-    assert "software" in cfg.keywords
+    assert "forensic" in cfg.keywords
+    assert cfg.favourited_ocids == []
 
 
 def test_save_then_load_round_trip(tmp_path: Path) -> None:
     path = tmp_path / "tender-watch.json"
-    cfg = Config(lookback_days=60, keywords=["alpha", "beta"])
+    cfg = Config(lookback_days=60, keywords=["alpha", "beta"], favourited_ocids=["ocds-1", "ocds-2"])
     save_config(cfg, path)
     loaded = load_config(path)
     assert loaded.lookback_days == 60
     assert loaded.keywords == ["alpha", "beta"]
+    assert loaded.favourited_ocids == ["ocds-1", "ocds-2"]
 
 
 def test_save_config_writes_atomically(tmp_path: Path) -> None:

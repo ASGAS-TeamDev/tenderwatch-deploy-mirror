@@ -28,6 +28,7 @@ const match: Match = {
   documents: [{ title: "Bid invitation", url: "https://www.etenders.gov.za/home/Download?blobName=test1.doc", format: "doc", date_published: "2026-06-14" }],
   published_date: "2026-06-15",
   tender_start_date: "2026-06-15",
+  heading: "",
 };
 
 describe("DetailDrawer", () => {
@@ -47,6 +48,16 @@ describe("DetailDrawer", () => {
     expect(screen.getByText(/^documents \(1\)$/i)).toBeInTheDocument();
     const docLink = screen.getByRole("link", { name: /bid invitation/i });
     expect(docLink).toHaveAttribute("href", "https://www.etenders.gov.za/home/Download?blobName=test1.doc");
+  });
+
+  it("routes PDF documents through the inline-view proxy instead of linking straight to eTenders", () => {
+    const pdfMatch: Match = {
+      ...match,
+      documents: [{ title: "Bid invitation", url: "https://www.etenders.gov.za/home/Download?blobName=test1.pdf", format: "pdf", date_published: "2026-06-14" }],
+    };
+    render(<DetailDrawer match={pdfMatch} onClose={() => {}} />);
+    const docLink = screen.getByRole("link", { name: /bid invitation/i });
+    expect(docLink).toHaveAttribute("href", "/api/matches/ocds-1/documents/0/view");
   });
 
   it("calls onClose when the close button is clicked", async () => {

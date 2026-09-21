@@ -159,9 +159,11 @@ rsync -az --delete \
 chown -R tender-watch:tender-watch /opt/tender-watch/backend
 if [[ ! -d /opt/tender-watch/backend/.venv ]]; then
     sudo -u tender-watch python3.12 -m venv /opt/tender-watch/backend/.venv
-    sudo -u tender-watch /opt/tender-watch/backend/.venv/bin/pip install --upgrade pip
-    sudo -u tender-watch /opt/tender-watch/backend/.venv/bin/pip install -e "/opt/tender-watch/backend[prod]"
 fi
+# Always (re)install deps so new requirements (e.g. asyncpg) land on
+# existing installs. Idempotent when nothing changed.
+sudo -u tender-watch /opt/tender-watch/backend/.venv/bin/pip install --upgrade pip
+sudo -u tender-watch /opt/tender-watch/backend/.venv/bin/pip install -e "/opt/tender-watch/backend[prod]"
 
 # --- 6. Seed config.json --------------------------------------------------
 echo "[6/12] Seeding config.json ..."
@@ -186,6 +188,19 @@ EOF
     chown root:tender-watch /etc/tender-watch/backend.env
     chmod 0640 /etc/tender-watch/backend.env
 fi
+# Ensure newer keys exist on existing installs without touching values
+# already set by hand.
+ensure_env_key() {
+    local key="$1" comment="$2"
+    if ! grep -q "^${key}=" /etc/tender-watch/backend.env; then
+        echo "$comment" >> /etc/tender-watch/backend.env
+        echo "${key}=" >> /etc/tender-watch/backend.env
+        chown root:tender-watch /etc/tender-watch/backend.env
+        chmod 0640 /etc/tender-watch/backend.env
+    fi
+}
+ensure_env_key TW_DATABASE_URL "# Postgres for the nightly n8n-synced tender data (empty = live eTenders fetch)"
+ensure_env_key TW_ANTHROPIC_API_KEY "# Anthropic API key for headings/executive summaries (empty = disabled)"
 
 # --- 8. Build SPA ----------------------------------------------------------
 echo "[8/12] Building SPA ..."

@@ -18,6 +18,11 @@ export interface Config {
   include_closed: boolean;
   keywords: string[];
   buyer_allowlist: string[];
+  // Optional so existing test fixtures / older cached configs that predate
+  // this field still type-check — the backend always sends it explicitly
+  // (defaults to false there).
+  match_all_buyers?: boolean;
+  favourited_ocids: string[];
 }
 
 export interface TenderDocument {
@@ -52,7 +57,7 @@ export interface Match {
   province: string | null;
   category: string | null;
   link: string;
-  flags: Array<"high-value" | "closing-soon" | "closed">;
+  flags: Array<"high-value" | "closing-soon" | "closed" | "briefing-required" | "briefing-scheduled" | "briefing-missed">;
   matched_on: { keywords: string[]; buyers: string[] };
   // Rich fields (added 2026-07-22)
   description: string;
@@ -65,6 +70,7 @@ export interface Match {
   documents: TenderDocument[];
   published_date: string;
   tender_start_date: string;
+  heading: string;
 }
 
 export interface Stats {
@@ -88,6 +94,10 @@ export interface HealthResponse {
   etenders_reachable: boolean;
   config_path: string;
   detail?: string;
+  // Postgres sync freshness. Null when TW_DATABASE_URL isn't configured
+  // (dev fallback — matches come from the live eTenders fetch instead)
+  // or no successful sync has landed yet.
+  last_synced_at?: string | null;
 }
 
 export interface ConfigResponse {
@@ -155,13 +165,25 @@ export function getHealth(): Promise<HealthResponse> {
   return request<HealthResponse>("/api/health");
 }
 
-export function getMatches(params: { window?: number; includeClosed?: boolean; bust?: string } = {}): Promise<MatchesResponse> {
+export function getMatches(params: { window?: number; includeClosed?: boolean; bust?: string; showAll?: boolean } = {}): Promise<MatchesResponse> {
   const qs = new URLSearchParams();
   if (params.window) qs.set("window", String(params.window));
   if (params.includeClosed !== undefined) qs.set("include_closed", String(params.includeClosed));
   if (params.bust) qs.set("bust", params.bust);
+  if (params.showAll) qs.set("show_all", "true");
   const q = qs.toString();
   return request<MatchesResponse>(`/api/matches${q ? `?${q}` : ""}`);
+}
+
+export function getSummary(ocid: string): Promise<{ summary: string }> {
+  return request<{ summary: string }>(`/api/matches/${encodeURIComponent(ocid)}/summary`, {}, 90_000);
+}
+
+// Same-origin proxy that re-serves a document with Content-Disposition:
+// inline — eTenders sends every document as an attachment, which forces a
+// browser download no matter how the frontend links to it directly.
+export function documentViewUrl(ocid: string, index: number): string {
+  return url(`/api/matches/${encodeURIComponent(ocid)}/documents/${index}/view`);
 }
 
 export function getConfig(): Promise<ConfigResponse> {

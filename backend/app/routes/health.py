@@ -5,6 +5,7 @@ import httpx
 from fastapi import APIRouter
 
 from app.models import HealthResponse
+from app.services import db
 from app.settings import settings
 
 router = APIRouter()
@@ -21,8 +22,17 @@ async def health() -> HealthResponse:
             ok = resp.status_code < 500
     except httpx.HTTPError:
         ok = False
+
+    last_synced_at = None
+    if settings.database_url:
+        try:
+            last_synced_at = await db.fetch_last_sync()
+        except Exception:  # noqa: BLE001 — any DB failure just surfaces as "unknown"
+            last_synced_at = None
+
     return HealthResponse(
         ok=ok,
         etenders_reachable=ok,
         config_path=settings.config_path,
+        last_synced_at=last_synced_at,
     )

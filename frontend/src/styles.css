@@ -27,6 +27,9 @@
   --color-on-tertiary-container: #005bb0;
 
   /* --- Functional colors (kept from v1 — UX conventions) --- */
+  --color-success: #16a34a;
+  --color-on-success: #ffffff;
+
   --color-warning: #d97706;
   --color-on-warning: #ffffff;
   --color-warning-container: #fef3c7;

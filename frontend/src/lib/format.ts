@@ -25,3 +25,24 @@ export function formatDateSAST(iso: string | null | undefined): string {
     return "";
   }
 }
+
+// en-GB gives "17 Sep 2026, 10:00" — used where the time-of-day matters
+// (e.g. a compulsory virtual briefing session), not just the date.
+const dateTimeFormatter = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Africa/Johannesburg",
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+
+export function formatDateTimeSAST(iso: string | null | undefined): string {
+  if (!iso) return "";
+  try {
+    return `${dateTimeFormatter.format(new Date(iso))} SAST`;
+  } catch {
+    return "";
+  }
+}

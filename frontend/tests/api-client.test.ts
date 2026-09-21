@@ -32,7 +32,7 @@ describe("api client", () => {
         status: 200,
       }),
     );
-    await putConfig({ lookback_days: 14, page_size: 100, high_value_threshold_zar: 5_000_000, closing_soon_days: 7, include_closed: true, keywords: [], buyer_allowlist: [] });
+    await putConfig({ lookback_days: 14, page_size: 100, high_value_threshold_zar: 5_000_000, closing_soon_days: 7, include_closed: true, keywords: [], buyer_allowlist: [], favourited_ocids: [] });
     expect(spy).toHaveBeenCalledWith("/api/config", expect.objectContaining({ method: "PUT" }));
   });
 });

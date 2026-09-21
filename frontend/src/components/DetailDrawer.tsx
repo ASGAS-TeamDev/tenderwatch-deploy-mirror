@@ -1,5 +1,5 @@
-import type { Match } from "../api/client";
-import { formatZAR, formatDateSAST } from "../lib/format";
+import { documentViewUrl, type Match } from "../api/client";
+import { formatZAR, formatDateSAST, formatDateTimeSAST } from "../lib/format";
 import { relativeClosingLabel } from "../lib/relativeTime";
 
 export function DetailDrawer({
@@ -138,7 +138,7 @@ export function DetailDrawer({
               {match.briefing_session.date && (
                 <p className="text-on-surface">
                   <span className="text-on-surface-variant">Date: </span>
-                  {formatDateSAST(match.briefing_session.date)}
+                  {formatDateTimeSAST(match.briefing_session.date)}
                 </p>
               )}
               {match.briefing_session.venue && match.briefing_session.venue !== "N/A" && (
@@ -191,22 +191,32 @@ export function DetailDrawer({
         {match.documents.length > 0 && (
           <Section title={`Documents (${match.documents.length})`}>
             <div className="space-y-2">
-              {match.documents.map((doc, i) => (
-                <a
-                  key={i}
-                  href={doc.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 rounded-card border border-outline bg-surface-variant px-3 py-2 text-xs font-bold text-on-surface transition hover:border-primary hover:bg-primary-container"
-                >
-                  <span className="text-on-surface-variant" aria-hidden>📄</span>
-                  <span className="flex-1 truncate" title={doc.title}>{doc.title}</span>
-                  {doc.format && (
-                    <span className="text-[10px] uppercase text-on-surface-variant">{doc.format}</span>
-                  )}
-                  <span className="text-primary" aria-hidden>↗</span>
-                </a>
-              ))}
+              {match.documents.map((doc, i) => {
+                // eTenders serves every document as Content-Disposition:
+                // attachment, which forces a download no matter how a plain
+                // link points at it. For PDFs, route through our own proxy
+                // (documentViewUrl) which re-serves it as `inline` so it
+                // opens in the browser's PDF viewer instead. Other formats
+                // (doc/xlsx/zip) have no in-browser viewer either way, so
+                // those keep linking straight to eTenders.
+                const isPdf = (doc.format ?? "").toLowerCase() === "pdf";
+                return (
+                  <a
+                    key={i}
+                    href={isPdf ? documentViewUrl(match.ocid, i) : doc.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 rounded-card border border-outline bg-surface-variant px-3 py-2 text-xs font-bold text-on-surface transition hover:border-primary hover:bg-primary-container"
+                  >
+                    <span className="text-on-surface-variant" aria-hidden>📄</span>
+                    <span className="flex-1 truncate" title={doc.title}>{doc.title}</span>
+                    {doc.format && (
+                      <span className="text-[10px] uppercase text-on-surface-variant">{doc.format}</span>
+                    )}
+                    <span className="text-primary" aria-hidden>{isPdf ? "👁" : "↗"}</span>
+                  </a>
+                );
+              })}
             </div>
           </Section>
         )}

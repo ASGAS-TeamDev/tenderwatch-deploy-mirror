@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from app.models import Config
@@ -57,7 +57,9 @@ def _days_to_close(closing_iso: str, now: datetime) -> int | None:
     return int(delta.total_seconds() // 86400)
 
 
-def apply_rules(release: dict[str, Any], config: Config, *, now: datetime) -> FilterResult:
+def apply_rules(
+    release: dict[str, Any], config: Config, *, now: datetime, show_all: bool = False,
+) -> FilterResult:
     tender = release.get("tender") or {}
     status = (tender.get("status") or "").lower()
     title = tender.get("title") or ""
@@ -121,14 +123,17 @@ def apply_rules(release: dict[str, Any], config: Config, *, now: datetime) -> Fi
             "telephone": contact_raw.get("telephoneNumber") or "",
         }
 
-    # Briefing session — is_session, compulsory, date, venue
+    # Briefing session — is_session, compulsory, date, venue. Keep the full
+    # ISO timestamp (not just the date) — compulsory briefings are often
+    # virtual (Teams/Zoom) where the exact time is what matters.
     briefing_raw = tender.get("briefingSession") or {}
     briefing_session = None
     if isinstance(briefing_raw, dict) and briefing_raw.get("isSession"):
+        briefing_date_raw = briefing_raw.get("date") or ""
         briefing_session = {
             "has_session": True,
             "compulsory": bool(briefing_raw.get("compulsory")),
-            "date": (briefing_raw.get("date") or "")[:10] if briefing_raw.get("date") and briefing_raw.get("date") != "0001-01-01T00:00:00Z" else "",
+            "date": briefing_date_raw if briefing_date_raw and briefing_date_raw != "0001-01-01T00:00:00Z" else "",
             "venue": briefing_raw.get("venue") or "",
         }
 
@@ -199,20 +204,54 @@ def apply_rules(release: dict[str, Any], config: Config, *, now: datetime) -> Fi
         kw for kw in config.keywords
         if kw.lower() in searchable
     ]
-    matched_buyers = [
-        b for b in config.buyer_allowlist
-        if b.lower() in buyer.lower() or b.lower() in procuring_entity.lower()
-    ]
+    matched_buyers = (
+        ["(all buyers)"]
+        if config.match_all_buyers
+        else [
+            b for b in config.buyer_allowlist
+            if b.lower() in buyer.lower() or b.lower() in procuring_entity.lower()
+        ]
+    )
     result.matched_on = {"keywords": matched_keywords, "buyers": matched_buyers}
 
     # Per system spec §4.1: must match EITHER a buyer OR a keyword. No match → drop.
-    if not matched_keywords and not matched_buyers:
+    # `show_all` is a temporary manual bypass (see routes/matches.py) for
+    # when the keyword/buyer config is being retuned and would otherwise
+    # hide everything — hard-reject rules above (status, no title) still apply.
+    if not show_all and not matched_keywords and not matched_buyers:
         result.reasons.append("no_keyword_no_buyer")
         return result
 
     result.keep = True
 
     # Flag rules
+    # Briefing session goes first so it's the leftmost, most-visible pill on
+    # the card — this is easy to miss buried in the detail drawer, and a
+    # compulsory session's non-attendance disqualifies the bid outright.
+    # Flag on has_session alone, NOT on the upstream `compulsory` field —
+    # eTenders' `compulsory` boolean is unreliable (observed tenders whose
+    # description says "non-attendance disqualifies" but compulsory=false),
+    # so treat every briefing as attention-worthy and let `compulsory` only
+    # steer the label/severity, not visibility.
+    if briefing_session and briefing_session["has_session"]:
+        briefing_iso = briefing_session["date"]
+        briefing_dt: datetime | None = None
+        if briefing_iso:
+            try:
+                briefing_dt = datetime.fromisoformat(briefing_iso.replace("Z", "+00:00"))
+            except ValueError:
+                briefing_dt = None
+            # eTenders sometimes gives a bare date ("2026-09-23") instead of
+            # a full timestamp — fromisoformat then returns a naive
+            # datetime, which can't be compared against the tz-aware `now`.
+            if briefing_dt is not None and briefing_dt.tzinfo is None:
+                briefing_dt = briefing_dt.replace(tzinfo=UTC)
+        if briefing_dt is not None and briefing_dt < now:
+            result.flags.append("briefing-missed")
+        elif briefing_session["compulsory"]:
+            result.flags.append("briefing-required")
+        else:
+            result.flags.append("briefing-scheduled")
     if amount is not None and amount >= config.high_value_threshold_zar:
         result.flags.append("high-value")
     if closing_iso:

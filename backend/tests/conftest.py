@@ -17,7 +17,9 @@ def default_config() -> Config:
         keywords=[
             "software", "it services", "system integration",
             "consulting", "professional services", "managed services",
-            "cloud", "cybersecurity", "data", "development",
+            "cloud", "cybersecurity", "data",
+            "software development", "application development", "systems development",
+            "web development", "ict development",
             "support and maintenance",
         ],
         buyer_allowlist=["sita", "national treasury", "sars", "dcdt", "gcis"],
