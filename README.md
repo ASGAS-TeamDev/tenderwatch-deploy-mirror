@@ -4,24 +4,29 @@ Herge Dynamics — a personal, on-demand browser tool that monitors the South Af
 OCDS Public API and surfaces IT / professional-services opportunities matching
 a user-defined keyword + buyer-allowlist filter.
 
-There is no scheduled job, no email digest, and no database. Every page load
-fetches fresh from `ocds-api.etenders.gov.za` over a sliding look-back window
-(the backend keeps a short-lived in-memory response cache to smooth bursts).
-The only persistent state is a small, user-editable JSON config on the
-backend's filesystem.
+There is no auth and no scheduled job on the app itself — but as of v0.2 the data
+path has changed: a **nightly n8n workflow syncs eTenders releases into Postgres**,
+and the backend reads from that database on the request path (~300ms instead of
+70s+ against the live API, which remains the fallback when no database is
+configured). A daily n8n digest emails new matches at 07:00. Claude adds 2–5 word
+match headings and on-demand executive summaries of a tender's first PDF. The only
+persistent state is the Postgres tables (`tenders`, `sync_runs` — written by n8n
+only) plus a small, user-editable JSON config on the backend's filesystem.
 
 ## Architecture
 
-- **Backend** (`backend/`) — Python 3.12+ / FastAPI / Pydantic v2 / httpx.
-  Fetches releases from eTenders, applies the filter pipeline
-  (hard-reject on status, soft-keep on keyword OR buyer, de-dupe by `ocid`,
-  flag for high-value / closing-soon / closed), serves three endpoints
-  (`GET /api/health`, `GET|PUT /api/config`, `GET /api/matches`), and caches
-  responses in memory with a configurable TTL.
+- **Backend** (`backend/`) — Python 3.12+ / FastAPI / Pydantic v2 / httpx + asyncpg.
+  Reads releases from Postgres (nightly n8n sync) or live from eTenders (fallback),
+  applies the filter pipeline (hard-reject on status, soft-keep on keyword OR
+  buyer, de-dupe by `ocid`, flag for high-value / closing-soon / closed /
+  briefing), serves `/api/health`, `GET|PUT /api/config`, `GET /api/matches`,
+  the Claude summary route, and a same-origin PDF proxy, and caches raw releases
+  in memory with a configurable TTL.
 - **Frontend** (`frontend/`) — Vite + React 19 + TypeScript + Tailwind v4.
-  Three views (List, Detail drawer, Config) plus shared chrome (tabs, health
-  chip, banners, empty state, flag pills). Calls the backend through the
-  `VITE_API_BASE` URL (or the Vite dev-server proxy in development).
+  Five views (List, Regions, Briefings, Config, detail drawer) plus shared
+  chrome (tabs, health chip, banners, empty state, flag pills, loading modal).
+  Calls the backend through the `VITE_API_BASE` URL (or the Vite dev-server
+  proxy in development).
 - **Deploy** (`deploy/`) — Single self-hosted origin at
   `watch.titan-ai.co.za`, on the shared xneelo nginx VPS
   (`156.38.222.220`). nginx terminates TLS (Let's Encrypt via
@@ -74,9 +79,10 @@ cd backend
 .venv\Scripts\python -m pytest -v
 ```
 
-25 tests cover the eTenders client, filter pipeline (T8–T12), config store,
-TTL cache (T4), the three API routes (T1, T2, T3, T5, T6, T7, T13, T16), and
-the CORS middleware (skipped in production).
+46 tests cover the eTenders client, filter pipeline (T8–T12), config store,
+TTL cache (T4), the API routes (health/config/matches + Claude summary + PDF proxy),
+the Postgres-backed data path (`test_matches_db.py`), and the CORS middleware
+(skipped in production).
 
 ### Frontend
 
@@ -85,8 +91,8 @@ cd frontend
 npx vitest run
 ```
 
-21 tests cover the API client, format / relative-time helpers, the match list
-(T14, T15), the detail drawer, and the config form.
+55 tests cover the API client, format / relative-time / match-filter helpers, the
+match list (T14, T15), the detail drawer, the config form, and the health chip.
 
 ### Lint + type check
 
