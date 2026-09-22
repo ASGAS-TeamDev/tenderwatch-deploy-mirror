@@ -89,6 +89,25 @@ export default function App() {
     if (view === "list" && config) void loadMatches();
   }, [view, config, loadMatches]);
 
+  // Deep-link support: ?ocid=<ocid> (e.g. from the daily digest email) opens
+  // that tender's detail drawer directly once matches have loaded. The param
+  // is stripped after being consumed so a later refresh/close doesn't re-open it.
+  useEffect(() => {
+    if (!data) return;
+    const params = new URLSearchParams(window.location.search);
+    const ocid = params.get("ocid");
+    if (!ocid) return;
+    const match = data.matches.find((m) => m.ocid === ocid);
+    if (match) {
+      setSelected(match);
+    } else {
+      setToast("That tender isn't in the current view — try widening the lookback window.");
+    }
+    params.delete("ocid");
+    const query = params.toString();
+    window.history.replaceState({}, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
+  }, [data]);
+
   const toggleFavourite = useCallback(async (ocid: string) => {
     if (!config) return;
     const nextFor = (base: Config) => {
